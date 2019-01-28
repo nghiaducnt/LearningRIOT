@@ -78,7 +78,9 @@ NORETURN void core_panic(core_panic_t crash_code, const char *message)
     pm_reboot();
 #else
     /* DEVELHELP set => power off system */
+#ifndef PROVIDES_PM_OFF
     pm_off();
+#endif
 #endif
 
     /* tell the compiler that we won't return from this function

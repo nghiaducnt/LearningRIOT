@@ -14,8 +14,11 @@ shell commands. These are included via the `shell_commands` module.
 Additionally, the `ps` module which provides the `ps` shell command is
 included.
 
+
 Usage
 =====
+Create TAP devices
+RIOT/dist/tools/tapsetup/tapsetup -c 2
 
 Build, flash and start the application:
 ```
