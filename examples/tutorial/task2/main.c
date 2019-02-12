@@ -5,6 +5,7 @@
 
 #include "shell.h"
 #include "thread.h"
+#include "algorithm.h"
 
 #define MAX_THREAD 3
 #define PRINT_MAX 100000000
@@ -43,6 +44,14 @@ static int __cmd_info_handler(int argc, char **args)
 }
 
 
+static int __cmd_dining_handler(int argc, char **args)
+{
+	(void)argc;
+	(void)args;
+	printf("Dining phylosophy algorithm\n");
+	dining_phylosophy();
+	return 0;	
+}
 static int __cmd_thread_handler(int argc, char **args)
 {
 	(void)argc;
@@ -86,6 +95,7 @@ static int __cmd_thread_handler(int argc, char **args)
 static const shell_command_t usr_cmds[] = {
     { "info", "Print system information", __cmd_info_handler },
     { "thread", "Create new test thread: thread <ID>", __cmd_thread_handler },
+    { "dining", "Running dining phylosophy", __cmd_dining_handler },
     { NULL, NULL, NULL }
 };
 
