@@ -17,8 +17,8 @@
 #define LEFT_FORK(id) ((id + (N-1)) % N)
 #define RIGHT_FORK(id) ((id + 1) %N)
 int phil[N] = { 0, 1, 2, 3, 4 }; 
-mutex_t mutex;
 static int bStop = 1;
+static int bInit = 0;
 enum State {
 	LAZY = 0,
 	HUNGRY,
@@ -50,6 +50,7 @@ struct _phylosophy {
 
 struct _fork {
 	int id;
+	mutex_t mutex;
 	int freed;
 	struct _phylosophy *owner;
 	uint32_t times; 
@@ -85,6 +86,8 @@ static int fork_init(int index)
 	Fork[index].freed = -1;
 	Fork[index].owner = NULL;
 	Fork[index].times = 0;
+	if (bInit == 0)
+		mutex_init(&Fork[index].mutex);
 	return 0;
 }
 static int phylosophy_printstate(struct _phylosophy *dr)
@@ -122,7 +125,7 @@ static int fork_test_and_get(struct _fork *fork, struct _phylosophy *dr, struct 
 		return -1;
 	/* lock */
 	if (conf->test_lock == 1)
-		mutex_lock(&mutex);
+		mutex_lock(&fork->mutex);
 	if (fork->freed == -1) {
 		/* If this block of code in the if condition can not be protected by the mutex
 		* fork's resource can be used by the other Dr
@@ -144,12 +147,12 @@ static int fork_test_and_get(struct _fork *fork, struct _phylosophy *dr, struct 
 			conf->num_of_conflick++;
 		}
 		if (conf->test_lock == 1)
-			mutex_unlock(&mutex);
+			mutex_unlock(&fork->mutex);
 		return 1;
 	}
 	/* unlock */
 	if (conf->test_lock == 1)
-		mutex_unlock(&mutex);
+		mutex_unlock(&fork->mutex);
 	return 0;
 }
 static int fork_release(struct _fork *fork, struct _configuration *conf)
@@ -158,13 +161,13 @@ static int fork_release(struct _fork *fork, struct _configuration *conf)
 		return -1;
 	/* lock */
 	if (conf->test_lock == 1)
-		mutex_lock(&mutex);
+		mutex_lock(&fork->mutex);
 	fork->freed = -1;
 	/* set the Dr owner */
 	fork->owner = NULL;
 	/* unlock */
 	if (conf->test_lock == 1)
-		mutex_unlock(&mutex);
+		mutex_unlock(&fork->mutex);
 	return 0;
 }
 static int phylosophy_rest(struct _phylosophy *dr)
@@ -283,7 +286,7 @@ static void* philosopher(void* arg)
 		return NULL;
 	dr = (struct _phylosophy *)arg;
 	dr->eating = 0;
-	while (bStop == 0) {
+	while (bStop == 0 || dr->state != HUNGRY) {
 		switch (dr->state) {
 			case LAZY:
 				phylosophy_lazy(dr);
@@ -310,21 +313,15 @@ static void* philosopher(void* arg)
 	}
 	return NULL; 
 } 
-static int bInit = 0;
 int dining_phylosophy(void) 
 { 
 
 	int i; 
-
 	// initialize the semaphorea
-	if (bInit == 0) { 
-		bInit = 1;
-		mutex_init(&mutex);
-	}
 	if (bStop == 1) {
 		bStop = 0;
 		Conf.test_yield = 1;
-		Conf.test_lock = 0; /* create resource conflict */
+		Conf.test_lock = 1; /* create resource conflict */
 		Conf.current_strategy = LEFT;
 		Conf.conflick = 0;
 		Conf.num_of_conflick = 0;
@@ -339,9 +336,10 @@ int dining_phylosophy(void)
 				bStop = 1;
 				return 1;
 			}
-    		} 
+    		}
+		bInit = 1; 
 		for (i = 0; i < N; ) {
-			if (Doctor[i].eating == 0) {
+			if (Doctor[i].eating < N) {
 				thread_yield();
 			} else {
 				i++;
@@ -349,6 +347,14 @@ int dining_phylosophy(void)
 			continue;
 		}
 		bStop = 1;
+		for (i = 0; i < N; ) {
+			if (Doctor[i].state != HUNGRY) {
+				thread_yield();
+			} else {
+				i++;
+			}
+			continue;
+		}
 		phylosophy_print(); 
 	} else
 		bStop = 1;
