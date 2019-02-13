@@ -71,6 +71,14 @@ static int phylosophy_init(int index, struct _configuration *conf)
 	sprintf(Doctor[index].thread_name, "Phylosopher %d", index);
 	return 0;
 }
+static void phylosophy_print(void)
+{
+	int i;
+	for (i = 0; i < N; i++) {
+		printf("Doctor %d ate %ld times\n", i, Doctor[i].eating);
+	}
+	printf("Configure status: conflicts %ld\n", Conf.num_of_conflick);
+}
 static int fork_init(int index)
 {
 	Fork[index].id = index;
@@ -116,16 +124,22 @@ static int fork_test_and_get(struct _fork *fork, struct _phylosophy *dr, struct 
 	if (conf->test_lock == 1)
 		mutex_lock(&mutex);
 	if (fork->freed == -1) {
-		/* set fork as not free, contains the Dr'id */
-		fork->freed = dr->id;
+		/* If this block of code in the if condition can not be protected by the mutex
+		* fork's resource can be used by the other Dr
+		*/
+		fork->owner = dr;
 		if (conf->test_yield)
 			thread_yield();
+		/* set fork as not free, contains the Dr'id */
+		fork->freed = dr->id;
 		/* increase number of use */
 		fork->times++;
 		/* set the Dr owner */
-		fork->owner = dr;
-		if (fork->owner->id != fork->freed) {
-			printf("Catch you, fork is being used by %d and %d\n", fork->freed, fork->owner->id);
+		if (fork->owner == NULL || fork->owner->id != fork->freed) {
+			if (fork->owner == NULL)
+				printf("Catch you, fork is being used by %d and freed by unknown\n", fork->freed);
+			else	
+				printf("Catch you, fork is being used by %d and %d\n", fork->freed, fork->owner->id);
 			conf->conflick = 1;
 			conf->num_of_conflick++;
 		}
@@ -177,8 +191,8 @@ static int phylosophy_lazy(struct _phylosophy *dr) {
 	if (dr == NULL)
 		return -1;
 	/* too lazy to take a break before turn to hungry state */
-	if (phylosophy_rest(dr) == 0)
-		dr->state = HUNGRY;
+	dr->state = HUNGRY;
+	phylosophy_rest(dr);
 	return 0;
 }
 static int phylosophy_hungry(struct _phylosophy *dr) {
@@ -186,10 +200,8 @@ static int phylosophy_hungry(struct _phylosophy *dr) {
 	if (dr == NULL)
 		return -1;
 	/* too lazy to take a break before turn to hungry state */
-	if (phylosophy_rest(dr) == 0)
-		dr->state = TAKING;
-	else
-		printf("Cannot rest!!!\n");
+	dr->state = TAKING;
+	phylosophy_rest(dr);
 	return 0;
 }
 static int phylosophy_thinking(struct _phylosophy *dr) {
@@ -197,8 +209,8 @@ static int phylosophy_thinking(struct _phylosophy *dr) {
 	if (dr == NULL)
 		return -1;
 	/* too lazy to take a break before turn to hungry state */
-	if( phylosophy_rest(dr) == 0)
-		dr->state = HUNGRY;
+	dr->state = HUNGRY;
+	phylosophy_rest(dr);
 	return 0;
 }
 static int phylosophy_eating(struct _phylosophy *dr) 
@@ -207,12 +219,10 @@ static int phylosophy_eating(struct _phylosophy *dr)
 	if (dr == NULL)
 		return -1;
 	/* Dr needs sometimes to eat */
-	/* After eating, Dr will think */
-	if (phylosophy_rest(dr) == 0) {
-		dr->eating++;
-		/* After eating, Dr will think */
-		dr->state = RELEASING;
-	}
+	dr->eating++;
+	/* After eating, Dr will release */
+	dr->state = RELEASING;
+	phylosophy_rest(dr);
 	return 0;	
 } 
 
@@ -233,18 +243,18 @@ static int phylosophy_taking(struct _phylosophy *dr)
 			printf("Doctor %d took fork %d on the %s\n", dr->id, dr->fork[OTHER_FORK(dr->current_strategy)]->id,
 				PRINT_FORK(OTHER_FORK(dr->current_strategy)));
 			/* After taking successfully, Dr will eat */
-			if (phylosophy_rest(dr) == 0)
-				dr->state = EATING;
+			dr->state = EATING;
 		} else {
 			/* Doctor cannot get RIGHT fork, don't forget release LEFT for other */
-			printf("Doctor %d couldnot take fork %d on the %s\n", dr->id, dr->fork[OTHER_FORK(dr->current_strategy)]->id, 
+			printf("Doctor %d could not take fork %d on the %s\n", dr->id, dr->fork[OTHER_FORK(dr->current_strategy)]->id, 
 				PRINT_FORK(OTHER_FORK(dr->current_strategy)));
 			fork_release(dr->fork[dr->current_strategy], dr->conf);
 		}
 	} else {
-		printf("Doctor %d couldnot take fork %d on the %s\n", dr->id, dr->fork[dr->current_strategy]->id,
+		printf("Doctor %d could not take the other fork %d on the %s\n", dr->id, dr->fork[dr->current_strategy]->id,
 			PRINT_FORK(dr->current_strategy));
 	}
+	phylosophy_rest(dr);
 	return 0;
 } 
 
@@ -253,6 +263,11 @@ static int phylosophy_releasing(struct _phylosophy *dr)
 { 
 	if (dr == NULL)
 		return -1;
+	if (dr->fork[LEFT]->owner != dr ||
+		dr->fork[RIGHT]->owner != dr)
+		printf("Catch you: Doctor %d release fork %d and fork %d which have not been taken by him\n", dr->id,
+			dr->fork[LEFT]->id,
+			dr->fork[RIGHT]->id);
 	/* Dr needs sometimes to release */
 	fork_release(dr->fork[LEFT], dr->conf);
 	fork_release(dr->fork[RIGHT], dr->conf);
@@ -309,7 +324,7 @@ int dining_phylosophy(void)
 	if (bStop == 1) {
 		bStop = 0;
 		Conf.test_yield = 1;
-		Conf.test_lock = 1;
+		Conf.test_lock = 0; /* create resource conflict */
 		Conf.current_strategy = LEFT;
 		Conf.conflick = 0;
 		Conf.num_of_conflick = 0;
@@ -333,7 +348,8 @@ int dining_phylosophy(void)
 			}
 			continue;
 		}
-		bStop = 1; 
+		bStop = 1;
+		phylosophy_print(); 
 	} else
 		bStop = 1;
 	return 0;
