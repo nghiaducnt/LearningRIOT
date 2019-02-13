@@ -11,6 +11,8 @@
 
 #define LEFT 0
 #define RIGHT 1
+#define OTHER_FORK(fork_strategy) ((fork_strategy + 1) % 2)
+#define PRINT_FORK(fork) (fork == LEFT ? "Left" : "Right")
 
 #define LEFT_FORK(id) ((id + (N-1)) % N)
 #define RIGHT_FORK(id) ((id + 1) %N)
@@ -28,6 +30,7 @@ enum State {
 struct _configuration {
 	int test_lock;
 	int test_yield;
+	int current_strategy;
 	int conflick;
 	uint32_t num_of_conflick;
 };
@@ -36,6 +39,7 @@ struct _configuration {
 struct _phylosophy {
 	int id;
 	int state;
+	int current_strategy;
 	uint32_t eating;
 	int pid;
 	char thread_name[32];
@@ -45,6 +49,7 @@ struct _phylosophy {
 }; 
 
 struct _fork {
+	int id;
 	int freed;
 	struct _phylosophy *owner;
 	uint32_t times; 
@@ -61,9 +66,17 @@ static int phylosophy_init(int index, struct _configuration *conf)
 	Doctor[index].eating = 0;
 	Doctor[index].id = index;
 	Doctor[index].fork[LEFT] = &Fork[LEFT_FORK(index)];
-	Doctor[index].fork[RIGHT] = &Fork[RIGHT_FORK(index)];
+	Doctor[index].fork[RIGHT] = &Fork[index];
 	memset(Doctor[index].thread_name, 0, 32);
 	sprintf(Doctor[index].thread_name, "Phylosopher %d", index);
+	return 0;
+}
+static int fork_init(int index)
+{
+	Fork[index].id = index;
+	Fork[index].freed = -1;
+	Fork[index].owner = NULL;
+	Fork[index].times = 0;
 	return 0;
 }
 static int phylosophy_printstate(struct _phylosophy *dr)
@@ -83,11 +96,14 @@ static int phylosophy_printstate(struct _phylosophy *dr)
 		case EATING:
 			printf("Dr %d is eating\n", dr->id);
 			break;
+		case RELEASING:
+			printf("Dr %d is releasing\n", dr->id);
+			break;
 		case THINKING:
-			printf("Dr %d is think\n", dr->id);
+			printf("Dr %d is thinking\n", dr->id);
 			break;
 		default:
-			printf("Dr %d is in unknown state\n", dr->id);
+			printf("Dr %d is in unknown state %d\n", dr->id, dr->state);
 			break;
 	}
 	return 0;
@@ -113,6 +129,8 @@ static int fork_test_and_get(struct _fork *fork, struct _phylosophy *dr, struct 
 			conf->conflick = 1;
 			conf->num_of_conflick++;
 		}
+		if (conf->test_lock == 1)
+			mutex_unlock(&mutex);
 		return 1;
 	}
 	/* unlock */
@@ -145,6 +163,7 @@ static int phylosophy_rest(struct _phylosophy *dr)
 		case HUNGRY:
 		case TAKING:
 		case EATING:
+		case RELEASING:
 		case THINKING:
 			thread_yield();
 			break;
@@ -169,6 +188,8 @@ static int phylosophy_hungry(struct _phylosophy *dr) {
 	/* too lazy to take a break before turn to hungry state */
 	if (phylosophy_rest(dr) == 0)
 		dr->state = TAKING;
+	else
+		printf("Cannot rest!!!\n");
 	return 0;
 }
 static int phylosophy_thinking(struct _phylosophy *dr) {
@@ -198,19 +219,31 @@ static int phylosophy_eating(struct _phylosophy *dr)
 // take up chopsticks 
 static int phylosophy_taking(struct _phylosophy *dr) 
 { 
-	/*  */
 	if (dr == NULL) 
 		return -1;
+	dr->current_strategy = dr->conf->current_strategy;
+	/* next Doctor will have different strategy */
+	dr->conf->current_strategy = OTHER_FORK(dr->conf->current_strategy);
+	printf("Doctor %d will take fork %s\n", dr->id, PRINT_FORK(dr->current_strategy));
 	/* Dr needs sometimes to take forks */
-	if (fork_test_and_get(dr->fork[LEFT], dr, dr->conf) == 1) {
-		if (fork_test_and_get(dr->fork[RIGHT], dr, dr->conf) == 1) {
+	if (fork_test_and_get(dr->fork[dr->current_strategy], dr, dr->conf) == 1) {
+		printf("Doctor %d took fork %d on the %s\n", dr->id, dr->fork[dr->current_strategy]->id,
+			PRINT_FORK(dr->current_strategy));
+		if (fork_test_and_get(dr->fork[OTHER_FORK(dr->current_strategy)], dr, dr->conf) == 1) {
+			printf("Doctor %d took fork %d on the %s\n", dr->id, dr->fork[OTHER_FORK(dr->current_strategy)]->id,
+				PRINT_FORK(OTHER_FORK(dr->current_strategy)));
 			/* After taking successfully, Dr will eat */
-			if( phylosophy_rest(dr) == 0)
+			if (phylosophy_rest(dr) == 0)
 				dr->state = EATING;
 		} else {
 			/* Doctor cannot get RIGHT fork, don't forget release LEFT for other */
-			fork_release(dr->fork[LEFT], dr->conf);
+			printf("Doctor %d couldnot take fork %d on the %s\n", dr->id, dr->fork[OTHER_FORK(dr->current_strategy)]->id, 
+				PRINT_FORK(OTHER_FORK(dr->current_strategy)));
+			fork_release(dr->fork[dr->current_strategy], dr->conf);
 		}
+	} else {
+		printf("Doctor %d couldnot take fork %d on the %s\n", dr->id, dr->fork[dr->current_strategy]->id,
+			PRINT_FORK(dr->current_strategy));
 	}
 	return 0;
 } 
@@ -256,7 +289,7 @@ static void* philosopher(void* arg)
 				phylosophy_thinking(dr);
 				break;
 			default:
-				printf("Unknow state %d\n", dr->id);
+				printf("Unknow state %d %d\n", dr->id, dr->state);
 				break;
 		}
 	}
@@ -277,9 +310,11 @@ int dining_phylosophy(void)
 		bStop = 0;
 		Conf.test_yield = 1;
 		Conf.test_lock = 1;
+		Conf.current_strategy = LEFT;
 		Conf.conflick = 0;
 		Conf.num_of_conflick = 0;
 		for (i = 0; i < N; i++) { 
+			fork_init(i);
 			phylosophy_init(i, &Conf);
 			/* start thread */
 			if ((Doctor[i].pid = thread_create(Doctor[i].thread_stack, sizeof(Doctor[i].thread_stack), THREAD_PRIORITY_MAIN ,
@@ -290,18 +325,17 @@ int dining_phylosophy(void)
 				return 1;
 			}
     		} 
-		for (i = 0; ; i++) {
-			if (i == N)
-				i = 0;
+		for (i = 0; i < N; ) {
 			if (Doctor[i].eating == 0) {
 				thread_yield();
-				continue;
+			} else {
+				i++;
 			}
-		bStop = 1;
-		break;
-		} 
+			continue;
+		}
+		bStop = 1; 
 	} else
-	bStop = 1;
+		bStop = 1;
 	return 0;
 } 
 
