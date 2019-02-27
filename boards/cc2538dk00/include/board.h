@@ -74,9 +74,15 @@ extern "C" {
  * @name    xtimer configuration
  * @{
  */
+#ifndef QEMU /* for real board */
 #define XTIMER_WIDTH        (16)
 #define XTIMER_BACKOFF      (50)
 #define XTIMER_ISR_BACKOFF  (40)
+#else /* for qemu */
+#define XTIMER_WIDTH        (32)
+#define XTIMER_BACKOFF      (30)
+#define XTIMER_ISR_BACKOFF  (20)
+#endif
 /** @} */
 
 /**

@@ -36,8 +36,13 @@ extern "C" {
  */
 static const timer_conf_t timer_config[] = {
     {
+#ifndef QEMU
         .chn = 2,
         .cfg = GPTMCFG_16_BIT_TIMER, /* required for XTIMER */
+#else /* QEMU uses 32 bit RTC  mode, QEMU has a bug which cannot read data beyond 0x44 */
+        .chn = 1,
+        .cfg = GPTMCFG_32_BIT_REAL_TIME_CLOCK, /* required for XTIMER */
+#endif
     },
     {
         .chn = 1,

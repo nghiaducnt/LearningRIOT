@@ -135,6 +135,9 @@ int timer_init(tim_t tim, unsigned long freq, timer_cb_t cb, void *arg)
 
         dev(tim)->TAPR = prescaler;
         dev(tim)->TAILR = LOAD_VALUE;
+    } else if (timer_config[tim].cfg == GPTMCFG_32_BIT_REAL_TIME_CLOCK) {
+        dev(tim)->TAMATCHR = 100;
+        dev(tim)->TBMATCHR = 0;
     }
     else {
         DEBUG("timer_init: invalid timer config must be 16 or 32Bit mode!\n");
@@ -149,6 +152,11 @@ int timer_init(tim_t tim, unsigned long freq, timer_cb_t cb, void *arg)
         dev(tim)->TBMR = chan_mode;
         dev(tim)->TBPR = prescaler;
         dev(tim)->TBILR = LOAD_VALUE;
+        /* Enable the timer: */
+        dev(tim)->CTL = TBEN | TAEN;
+    } else {
+	/* 32-bit count down mode, 32-bit realtime mode */
+        dev(tim)->TBMR = chan_mode;
         /* Enable the timer: */
         dev(tim)->CTL = TBEN | TAEN;
     }
@@ -207,6 +215,8 @@ unsigned int timer_read(tim_t tim)
 
     if (timer_config[tim].cfg == GPTMCFG_32_BIT_TIMER) {
         return dev(tim)->TAV;
+    } else if (timer_config[tim].cfg == GPTMCFG_32_BIT_REAL_TIME_CLOCK) {
+	return dev(tim)->TAR;
     }
     else {
         return LOAD_VALUE - (dev(tim)->TAV & 0xffff);
