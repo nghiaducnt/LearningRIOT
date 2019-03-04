@@ -33,10 +33,11 @@
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
-#define LOAD_VALUE              (0xffff)
+#define LOAD_VALUE              (0x30D4)
 
 #define TIMER_A_IRQ_MASK        (0x000000ff)
 #define TIMER_B_IRQ_MASK        (0x0000ff00)
+
 
 /* GPTIMER_CTL Bits */
 #define TBEN                    GPTIMER_CTL_TBEN
@@ -52,8 +53,8 @@ typedef struct {
 } _isr_cfg_t;
 
 static const _isr_cfg_t chn_isr_cfg[] = {
-    { .mask = TIMER_A_IRQ_MASK, .flag = GPTIMER_IMR_TAMIM },
-    { .mask = TIMER_B_IRQ_MASK, .flag = GPTIMER_IMR_TBMIM }
+    { .mask = TIMER_A_IRQ_MASK, .flag = GPTIMER_IMR_TAMIM | GPTIMER_IMR_TATOIM},
+    { .mask = TIMER_B_IRQ_MASK, .flag = GPTIMER_IMR_TBMIM}
 };
 
 /**
@@ -125,6 +126,9 @@ int timer_init(tim_t tim, unsigned long freq, timer_cb_t cb, void *arg)
                   (unsigned)sys_clock_freq());
             return -1;
         }
+	/* In 32 Bit counting mode, the timer will generate un interrupt
+	after 1 ms */
+        dev(tim)->TAILR = LOAD_VALUE;
     }
     else if (timer_config[tim].cfg == GPTMCFG_16_BIT_TIMER) {
         prescaler = sys_clock_freq();
@@ -136,8 +140,8 @@ int timer_init(tim_t tim, unsigned long freq, timer_cb_t cb, void *arg)
         dev(tim)->TAPR = prescaler;
         dev(tim)->TAILR = LOAD_VALUE;
     } else if (timer_config[tim].cfg == GPTMCFG_32_BIT_REAL_TIME_CLOCK) {
-        dev(tim)->TAMATCHR = 100;
-        dev(tim)->TBMATCHR = 0;
+        chan_mode |= TNCDIR ;
+        dev(tim)->TAMATCHR = 0x2;
     }
     else {
         DEBUG("timer_init: invalid timer config must be 16 or 32Bit mode!\n");
@@ -159,6 +163,7 @@ int timer_init(tim_t tim, unsigned long freq, timer_cb_t cb, void *arg)
         dev(tim)->TBMR = chan_mode;
         /* Enable the timer: */
         dev(tim)->CTL = TBEN | TAEN;
+        dev(tim)->TBILR = 0x0;
     }
 
     /* Enable interrupts for given timer: */
@@ -255,7 +260,7 @@ void timer_start(tim_t tim)
  * @param[in] num   GPT instance number
  * @param[in] chn   channel number (0=A, 1=B)
  */
-static void irq_handler(tim_t tim, int channel)
+static void gptm_irq_handler(tim_t tim, int channel)
 {
   DEBUG("%s(%u,%d)\n", __FUNCTION__, tim, channel);
   assert(tim < TIMER_NUMOF);
@@ -277,11 +282,11 @@ static void irq_handler(tim_t tim, int channel)
     cortexm_isr_end();
 }
 
-void isr_timer0_chan0(void) {irq_handler(0, 0);}
-void isr_timer0_chan1(void) {irq_handler(0, 1);}
-void isr_timer1_chan0(void) {irq_handler(1, 0);}
-void isr_timer1_chan1(void) {irq_handler(1, 1);}
-void isr_timer2_chan0(void) {irq_handler(2, 0);}
-void isr_timer2_chan1(void) {irq_handler(2, 1);}
-void isr_timer3_chan0(void) {irq_handler(3, 0);}
-void isr_timer3_chan1(void) {irq_handler(3, 1);}
+void isr_timer0_chan0(void) {gptm_irq_handler(0, 0);}
+void isr_timer0_chan1(void) {gptm_irq_handler(0, 1);}
+void isr_timer1_chan0(void) {gptm_irq_handler(1, 0);}
+void isr_timer1_chan1(void) {gptm_irq_handler(1, 1);}
+void isr_timer2_chan0(void) {gptm_irq_handler(2, 0);}
+void isr_timer2_chan1(void) {gptm_irq_handler(2, 1);}
+void isr_timer3_chan0(void) {gptm_irq_handler(3, 0);}
+void isr_timer3_chan1(void) {gptm_irq_handler(3, 1);}
