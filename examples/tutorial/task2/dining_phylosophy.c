@@ -323,6 +323,7 @@ int dining_phylosophy(int times, int yield, int lock, int silent)
 
 	int i;
 	(void)silent;
+	printf("Arguments: %d %d %d %d\n", times, yield, lock, silent);
 	if (bStop == 1) {
 		bStop = 0;
 		Conf.test_yield = yield;

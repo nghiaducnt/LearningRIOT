@@ -51,13 +51,34 @@ static int __cmd_info_handler(int argc, char **args)
 	printf("CPU[%s] MCU[%s] BOARD[%s]\n", RIOT_CPU, RIOT_MCU, RIOT_BOARD);
 	return 0;	
 }
+struct dining_args {
+	int times;
+	int yield;
+	int lock;
+	int silent;
+};
+static void *_dining_wrapper(void *args)
+{
+	(void)args;
+	struct dining_args* dining_arg;
+	dining_arg = (struct dining_args *)args;
+	dining_phylosophy(dining_arg->times,
+		dining_arg->yield,
+		dining_arg->lock,
+		dining_arg->silent);
+	return NULL;
+}
 
-
+static char dining_thread_stack[THREAD_STACKSIZE_DEFAULT];
+static struct dining_args dining_arg;
 static int __cmd_dining_handler(int argc, char **args)
 {
 	(void)argc;
 	(void)args;
-	int times = 5, yield = 1, lock = 1, silent = 0;
+	dining_arg.times = 5;
+	dining_arg.yield = 1;
+	dining_arg.lock = 1;
+	dining_arg.silent = 0;
 	printf("Dining phylosophy algorithm\n");
 #if 0
 	switch (argc) {
@@ -75,15 +96,21 @@ static int __cmd_dining_handler(int argc, char **args)
 #else
 
 	if (argc >= 5)
-		silent = atoi(args[4]);
+		dining_arg.silent = atoi(args[4]);
 	if (argc >= 4)
-		lock = atoi(args[3]);
+		dining_arg.lock = atoi(args[3]);
 	if (argc >= 3)
-		yield = atoi(args[2]);
+		dining_arg.yield = atoi(args[2]);
 	if (argc >= 2)
-		times = atoi(args[1]);
+		dining_arg.times = atoi(args[1]);
 #endif
-	dining_phylosophy(times, yield, lock, silent);
+	/* start thread */
+	if ((thread_create(dining_thread_stack, sizeof(dining_thread_stack), THREAD_PRIORITY_MAIN,
+		THREAD_CREATE_STACKTEST,
+		_dining_wrapper, &dining_arg, "Dining")) <= KERNEL_PID_UNDEF) {
+		printf("error initializing thread\n");
+		return 1;
+    	}
 	return 0;	
 }
 static int __cmd_thread_handler(int argc, char **args)

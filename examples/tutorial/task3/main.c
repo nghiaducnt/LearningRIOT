@@ -2,23 +2,24 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
-
+#include <stddef.h>
 #include "shell.h"
 #include "thread.h"
 #include "xtimer.h"
 
-char thread_stack[THREAD_STACKSIZE_MAIN];
-
+#define PRINT_VAL(id) printf("The value of " #id " is %d\n", id);
+char thread_stack[5][THREAD_STACKSIZE_MAIN];
+int current_stack = 0;
 static void *_timer_thread(void *args)
 {
 	(void)args;
 	while (1) {
 		xtimer_ticks32_t t = xtimer_now();
-		printf("\t Thread time: %lu\n", t.ticks32);
+		printf("\t Thread start: %lu\n", t.ticks32);
 		/* sleep  */
 		xtimer_usleep(25000000);
 		t = xtimer_now();
-		printf("\t Thread time: %lu\n", t.ticks32);
+		printf("\t Thread stop: %lu\n", t.ticks32);
 		break;
 	}
 	return NULL;
@@ -37,16 +38,20 @@ static int __cmd_time_handler(int argc, char **args)
 {
 	(void)argc;
 	(void)args;
-	/* we need thread id */
-	xtimer_ticks32_t t = xtimer_now();
-	printf("%lu\n", t.ticks32);
+	int i = 0;
 	/* start thread */
-	if (thread_create(thread_stack, sizeof(thread_stack), THREAD_PRIORITY_MAIN - 1,
-		THREAD_CREATE_STACKTEST,
-		_timer_thread, NULL, "Heartbeat") <= KERNEL_PID_UNDEF) {
-		printf("error initializing thread\n");
-		return 1;
-    	}
+	for (i = 0; i < 5; i++) {
+		if (thread_create(
+			thread_stack[current_stack++ % 5],
+			sizeof(thread_stack[0]),
+			THREAD_PRIORITY_MAIN + 1,
+			THREAD_CREATE_STACKTEST,
+			_timer_thread, NULL, "Heartbeat") <= KERNEL_PID_UNDEF) {
+			printf("error initializing thread\n");
+			return 1;
+    		}
+		xtimer_usleep(10000000);
+	}
 
 	return 0;	
 }
@@ -65,8 +70,7 @@ int main(void)
 {
 	printf("Task03: Create timer\n");
 	char linebuf[SHELL_DEFAULT_BUFSIZE];
-	//xtimer_init();
-	//shell_run is using while loop, so the code behind it can not be executed
+	/* shell_run is using while loop, so the code behind it can not be executed */
 	shell_run(usr_cmds, linebuf, SHELL_DEFAULT_BUFSIZE);
 	return 0;
 }
