@@ -9,6 +9,10 @@ ifneq (,$(filter cc2538_rf,$(USEMODULE)))
   DIRS += radio
 endif
 
+# cc2538_rf radio driver
+ifneq (,$(filter stellaris_ether,$(USEMODULE)))
+  DIRS += stellaris_ether
+endif
 # (file triggers compiler bug. see #5775)
 SRC_NOLTO += vectors.c
 
