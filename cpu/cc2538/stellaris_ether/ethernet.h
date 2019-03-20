@@ -51,6 +51,8 @@ extern "C"
 {
 #endif
 
+#define ETH_BASE                0x40048000  // Ethernet
+#define MAC_BASE                0x40048000  // Ethernet
 //*****************************************************************************
 //
 // Values that can be passed to EthernetConfigSet as the ulConfig value, and

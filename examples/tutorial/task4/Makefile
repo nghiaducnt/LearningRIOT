@@ -19,6 +19,12 @@ QUIET ?= 1
 USEMODULE += shell
 USEMODULE += shell_commands
 USEMODULE += ps
+USEMODULE += gnrc_pktdump
+USEMODULE += gnrc_txtsnd
 USEMODULE += gnrc_netdev_default
+USEMODULE += auto_init_gnrc_netif
+USEMODULE += stellaris_ether
+USEMODULE += netdev_eth
+USEMODULE += netstats_l2
 include $(RIOTBASE)/Makefile.include
 

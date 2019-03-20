@@ -246,6 +246,12 @@ void auto_init(void)
     auto_init_cc2538_rf();
 #endif
 
+
+#ifdef MODULE_STELLARIS_ETHER
+    extern void auto_init_stellaris_eth(void);
+    auto_init_stellaris_eth();
+#endif
+
 #ifdef MODULE_XBEE
     extern void auto_init_xbee(void);
     auto_init_xbee();
