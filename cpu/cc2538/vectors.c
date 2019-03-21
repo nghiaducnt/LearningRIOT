@@ -57,6 +57,7 @@ WEAK_DEFAULT void isr_mactimer(void);
 WEAK_DEFAULT void isr_ssi1(void);
 WEAK_DEFAULT void isr_timer3_chan0(void);
 WEAK_DEFAULT void isr_timer3_chan1(void);
+WEAK_DEFAULT void isr_ethernet(void);
 WEAK_DEFAULT void isr_usb(void);
 WEAK_DEFAULT void isr_dma(void);
 WEAK_DEFAULT void isr_dmaerr(void);
@@ -105,7 +106,7 @@ ISR_VECTOR(1) const isr_t vector_cpu[CPU_IRQ_NUMOF] = {
     (0UL),                  /* 55 Reserved */
     (0UL),                  /* 56 Reserved */
     (0UL),                  /* 57 Reserved */
-    (0UL),                  /* 58 Reserved */
+    isr_ethernet,           /* 58 Reserved */
     (0UL),                  /* 59 Reserved */
     isr_usb,                /* 60 USB 2538 */
     (0UL),                  /* 61 Reserved */

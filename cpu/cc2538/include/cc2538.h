@@ -73,6 +73,7 @@ typedef enum IRQn
     SSI1_IRQn             =  34, /**<    SSI1                                  */
     GPTIMER_3A_IRQn       =  35, /**<    GPTimer 3A                            */
     GPTIMER_3B_IRQn       =  36, /**<    GPTimer 3B                            */
+    ETHERNET_IRQn      	  =  42, /**<    Ethernet                              */
     UDMA_IRQn             =  46, /**<    uDMA software                         */
     UDMA_ERR_IRQn         =  47, /**<    uDMA error                            */
     USB_IRQn              = 140, /**<    USB                                   */
