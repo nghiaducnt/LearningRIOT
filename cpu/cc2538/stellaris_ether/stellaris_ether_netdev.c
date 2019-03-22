@@ -32,6 +32,7 @@
 #include "stellaris_ether_netdev.h"
 
 #include "inc/hw_types.h"
+#include "inc/hw_ethernet.h"
 #include "ethernet.h"
 
 #define IN_EMULATION 1
@@ -47,13 +48,15 @@ static inline void _irq_enable(void)
 
     NVIC_EnableIRQ(irqn);
 }
+#if 0
+/* not use for now */
 static inline void _irq_disable(void)
 {
     IRQn_Type irqn = ETHERNET_IRQn;
 
     NVIC_DisableIRQ(irqn);
 }
-
+#endif
 static int stellaris_eth_init(netdev_t *netdev)
 {
     DEBUG("%s: netdev=%p\n", __func__, netdev);
@@ -65,6 +68,7 @@ static int stellaris_eth_init(netdev_t *netdev)
     EthernetConfigSet(ETH_BASE, (ETH_CFG_TX_DPLXEN | ETH_CFG_TX_PADEN)); 
     /* enable interrupt, for link status */
     dev->irq = ETH_INT_PHY;
+    EthernetEnable(ETH_BASE);
     EthernetIntEnable(ETH_BASE, dev->irq);
     #ifdef MODULE_NETSTATS_L2
     memset(&netdev->stats, 0, sizeof(netstats_t));
@@ -84,7 +88,6 @@ static int stellaris_eth_init(netdev_t *netdev)
 static int stellaris_eth_send(netdev_t *netdev, const iolist_t *iolist)
 {
     DEBUG("%s: netdev=%p iolist=%p\n", __func__, netdev, iolist);
-    int ret;
     assert(netdev != NULL);
     assert(iolist != NULL);
 
@@ -111,39 +114,28 @@ static int stellaris_eth_send(netdev_t *netdev, const iolist_t *iolist)
     printf ("%s: send %d byte\n", __func__, dev->tx_len);
     #endif
     /* send the the packet to the peer(s) mac address */
-
-    if (EthernetPacketPut(ETH_BASE, dev->tx_buf, dev->tx_len)) {
-        #ifdef MODULE_NETSTATS_L2
-        netdev->stats.tx_success++;
-        netdev->stats.tx_bytes += dev->tx_len;
-        #endif
-        netdev->event_callback(netdev, NETDEV_EVENT_TX_COMPLETE);
-	ret = 0;
-    }
-    else {
-        #ifdef MODULE_NETSTATS_L2
-        netdev->stats.tx_failed++;
-        #endif
-        ret = -EIO;
-    }
+    EthernetPacketPutNonBlocking(ETH_BASE, dev->tx_buf, dev->tx_len);
     mutex_unlock(&dev->dev_lock);
-    return ret;
+    return 0;
 }
 
 static int stellaris_eth_recv(netdev_t *netdev, void *buf, size_t len, void *info)
 {
     DEBUG("%s: netdev=%p buf=%p len=%u info=%p\n",
           __func__, netdev, buf, len, info);
-
+    int size;
     assert(netdev != NULL);
 
     stellaris_eth_netdev_t* dev = (stellaris_eth_netdev_t*)netdev;
 
     mutex_lock(&dev->dev_lock);
 
-    int size = dev->rx_len;
 
+    /* copy received date and reset the receive length */
+    /* if buf and len are 0, then just get length */
     if (!buf) {
+        size = EthernetPacketGet(ETH_BASE, dev->rx_buf, ETHERNET_DATA_LEN);
+        dev->rx_len = size;
         /* get the size of the frame; if len > 0 then also drop the frame */
         if (len > 0) {
             /* drop frame requested */
@@ -160,14 +152,17 @@ static int stellaris_eth_recv(netdev_t *netdev, void *buf, size_t len, void *inf
         mutex_unlock(&dev->dev_lock);
         return -ENOBUFS;
     }
-
-    /* copy received date and reset the receive length */
-    size = EthernetPacketGet(ETH_BASE, buf, len);
+    /* hacker? */
+    if (len > dev->rx_len)
+	len = dev->rx_len;
+    size = len;
+    memcpy(buf, dev->rx_buf, len);
+    /* data has been copied, ready for next data */
     dev->rx_len = 0;
 
     #ifdef MODULE_NETSTATS_L2
     netdev->stats.rx_count++;
-    netdev->stats.rx_bytes += size;
+    netdev->stats.rx_bytes += len;
     #endif
 
     mutex_unlock(&dev->dev_lock);
@@ -183,6 +178,8 @@ static int stellaris_eth_get(netdev_t *netdev, netopt_t opt, void *val, size_t m
     assert(val != NULL);
 
     switch (opt) {
+	case NETOPT_DEVICE_TYPE:
+	    return NETDEV_TYPE_ETHERNET;
         case NETOPT_ADDRESS:
             assert(max_len == ETHERNET_ADDR_LEN);
 	    EthernetMACAddrGet(ETH_BASE, (unsigned char *)val);
@@ -208,13 +205,31 @@ static int stellaris_eth_set(netdev_t *netdev, netopt_t opt, const void *val, si
 	    EthernetMACAddrSet(ETH_BASE, (unsigned char *)val);
             return ETHERNET_ADDR_LEN;
         case NETOPT_TX_END_IRQ:
-	    dev->irq |= (ETH_INT_TXER | ETH_INT_RX);
-    	    EthernetIntEnable(ETH_BASE, dev->irq);
+	{
+	    uint32_t set = *(uint32_t *)val;
+	    uint32_t irq = ETH_INT_TXER | ETH_INT_TX; 
+	    if (set) {
+	    	dev->irq |= irq;
+    	    	EthernetIntEnable(ETH_BASE, irq);
+	    } else {
+	    	dev->irq &= (~irq);
+    	    	EthernetIntClear(ETH_BASE, irq);
+	    }
 	    return 1;
+	}
 	case NETOPT_RX_END_IRQ:
-	    dev->irq |= (ETH_INT_RXER | ETH_INT_RXOF);
-    	    EthernetIntEnable(ETH_BASE, dev->irq);
+	{
+	    uint32_t set = *(uint32_t *)val;
+	    uint32_t irq = ETH_INT_RXER | ETH_INT_RXOF;
+	    if (set) {
+	    	dev->irq |= irq;
+    	    	EthernetIntEnable(ETH_BASE, irq);
+	    } else {
+	    	dev->irq &= (~irq);
+    	    	EthernetIntClear(ETH_BASE, irq);
+	    }
 	    return 1;
+	}
         default:
             return netdev_eth_set(netdev, opt, val, max_len);
     }
@@ -228,10 +243,6 @@ static void stellaris_eth_isr(netdev_t *netdev)
     assert(netdev != NULL);
     stellaris_eth_netdev_t *dev = (stellaris_eth_netdev_t *) netdev;
     dev->irq_num++;
-    /* check for interrupt */
-
-    /* clear interrupt bit */
-    _irq_enable();
     return;
 }
 
@@ -269,16 +280,43 @@ void auto_init_stellaris_eth (void)
 void isr_ethernet(void)
 {
 	unsigned long irq_status = EthernetIntStatus(ETH_BASE, 0);
-	
+	netdev_t *netdev = &priv_stellaris_eth_dev.netdev;
 	EthernetIntClear(ETH_BASE, irq_status);
 	if (irq_status & ETH_INT_PHY) {
 		/* check link status */
+		uint16_t mr1 = EthernetPHYRead(ETH_BASE, PHY_MR1);
+		if (mr1 & PHY_MR1_LINK) {
+			priv_stellaris_eth_dev.link_up = true;
+        		netdev->event_callback(netdev,
+				NETDEV_EVENT_LINK_UP);
+		} else {
+			priv_stellaris_eth_dev.link_up = false;
+        		netdev->event_callback(netdev,
+				NETDEV_EVENT_LINK_DOWN);
+		}
+			
+	}
+	if (irq_status & ETH_INT_RXOF || irq_status & ETH_INT_RXER) {
+        	netdev->event_callback(netdev,
+			NETDEV_EVENT_RX_TIMEOUT);
 	}
 	if (irq_status & ETH_INT_RX) {
-        	priv_stellaris_eth_dev.netdev.event_callback(&priv_stellaris_eth_dev.netdev,
+        	netdev->event_callback(netdev,
 			NETDEV_EVENT_RX_COMPLETE);
 	}
-
-        priv_stellaris_eth_dev.netdev.event_callback(&priv_stellaris_eth_dev.netdev, NETDEV_EVENT_ISR);
+    	if (irq_status & ETH_INT_TX) {
+        	#ifdef MODULE_NETSTATS_L2
+        	netdev->stats.tx_success++;
+        	netdev->stats.tx_bytes += priv_stellaris_eth_dev.tx_len;
+        	#endif
+        	netdev->event_callback(netdev, NETDEV_EVENT_TX_COMPLETE);
+    	}
+	if (irq_status & ETH_INT_TXER) {
+        	#ifdef MODULE_NETSTATS_L2
+        	netdev->stats.tx_failed++;
+        	#endif
+        	netdev->event_callback(netdev, NETDEV_EVENT_TX_TIMEOUT);
+    	}
+        netdev->event_callback(netdev, NETDEV_EVENT_ISR);
     	cortexm_isr_end();
 }
