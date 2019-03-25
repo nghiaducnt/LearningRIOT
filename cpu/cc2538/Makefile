@@ -9,7 +9,7 @@ ifneq (,$(filter cc2538_rf,$(USEMODULE)))
   DIRS += radio
 endif
 
-# cc2538_rf radio driver
+# stellaris ethernet driver
 ifneq (,$(filter stellaris_ether,$(USEMODULE)))
   DIRS += stellaris_ether
 endif

@@ -1,6 +1,6 @@
-# Define the cpu used by the CC2538DK board:
+# Define the cpu used by the LM3S6965EVB board:
 export CPU        = cc2538
-export CPU_MODEL ?= cc2538nf00
+export CPU_MODEL ?= lm3s6965evb
 
 # the SmartRF06 Evaluation Board serial numbers all begin with "06EB":
 export PROGRAMMER_SERIAL ?= 06EB

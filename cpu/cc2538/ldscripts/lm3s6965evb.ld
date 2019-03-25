@@ -17,11 +17,11 @@
  */
 
 /* Memory Space Definitions: */
-/* the LM3S6965EVB has 64k rom and 128k ram */
+/* the LM3S6965EVB has 128k rom and 256k ram */
 MEMORY
 {
-    rom (rx)    : ORIGIN = 0x00000000, LENGTH = 64K - 44
-    cca         : ORIGIN = 0x0000ffd4, LENGTH = 44
+    rom (rx)    : ORIGIN = 0x00000000, LENGTH = 128K - 44
+    cca         : ORIGIN = 0x0001ffd4, LENGTH = 44
     sram0       : ORIGIN = 0x20000000, LENGTH = 64K /* Lost in PM2 and PM3 */
     sram1       : ORIGIN = 0x20010000, LENGTH = 64K
     ram (w!rx)  : ORIGIN = 0x20000000, LENGTH = 32K
