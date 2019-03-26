@@ -9,6 +9,9 @@ ifneq (,$(filter cc2538_rf,$(USEMODULE)))
   DIRS += radio
 endif
 
+ifneq (,$(filter lm3s6965evb_qemu,$(BOARD)))
+CFLAGS += -g -DDEVELHELP -DXTIMER_HZ=32000000 -DQEMU -O0
+endif
 # stellaris ethernet driver
 ifneq (,$(filter stellaris_ether,$(USEMODULE)))
   DIRS += stellaris_ether

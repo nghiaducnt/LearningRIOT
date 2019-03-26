@@ -1,0 +1,36 @@
+/**
+@defgroup    boards_lm3s6965evb LM3S6965EVB
+@ingroup     boards
+@brief       Support for the Texas Instruments LM3S6965 board.
+
+## Overview
+
+The [LM3S6965EVB](http://www.ti.com/product/LM3S6965) is Texas Instruments'
+developer kit for the LM3S6965 SoC MCU, which combines an ARM Cortex-M3
+microcontroller with an Ethernet MAC and PHY device.
+
+## Hardware
+
+
+| MCU        | LM3S6965        |
+|:------------- |:--------------------- |
+| Family | ARM Cortex-M3     |
+| Vendor | Texas Instruments |
+| RAM        | 256Kb  |
+| Flash      | 128Kb             |
+| Frequency  | 32MHz |
+| FPU        | no                |
+| Timers | 4 |
+| ADCs       | 1x 12-bit (8 channels)        |
+| UARTs      | 2                 |
+| SPIs       | 2                 |
+| I2Cs       | 1                 |
+| Vcc        | 2V - 3.6V         |
+
+#Support
+As the chipset is not recommended by TI, there is only qemu emulation platform to run and test RIOT image.
+Add this configuration to the Makefile of user application:
+ifeq (lm3s6965evb_qemu, $(BOARD))
+CFLAGS += -g -DDEVELHELP -DXTIMER_HZ=32000000 -DQEMU -O0
+endif
+
