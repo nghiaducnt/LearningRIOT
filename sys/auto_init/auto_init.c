@@ -168,11 +168,6 @@ void auto_init(void)
     extern void cord_ep_standalone_run(void);
     cord_ep_standalone_run();
 #endif
-#ifdef MODULE_CORD_EPSIM_STANDALONE
-    DEBUG("Auto init cord_epsim module\n");
-    extern void cord_epsim_run(void);
-    cord_epsim_run();
-#endif
 #ifdef MODULE_ASYMCUTE
     DEBUG("Auto init Asymcute\n");
     asymcute_handler_run();
@@ -292,6 +287,11 @@ void auto_init(void)
     auto_init_sx127x();
 #endif
 
+#ifdef MODULE_NRF802154
+    extern void auto_init_nrf802154(void);
+    auto_init_nrf802154();
+#endif
+
 #endif /* MODULE_AUTO_INIT_GNRC_NETIF */
 
 #ifdef MODULE_GNRC_UHCPC
@@ -326,6 +326,14 @@ void auto_init(void)
 #ifdef MODULE_SAUL_GPIO
     extern void auto_init_gpio(void);
     auto_init_gpio();
+#endif
+#ifdef MODULE_SAUL_NRF_TEMPERATURE
+    extern void auto_init_nrf_temperature(void);
+    auto_init_nrf_temperature();
+#endif
+#ifdef MODULE_AD7746
+    extern void auto_init_ad7746(void);
+    auto_init_ad7746();
 #endif
 #ifdef MODULE_ADCXX1C
     extern void auto_init_adcxx1c(void);
@@ -407,9 +415,9 @@ void auto_init(void)
     extern void auto_init_lis3mdl(void);
     auto_init_lis3mdl();
 #endif
-#ifdef MODULE_LPS331AP
-    extern void auto_init_lps331ap(void);
-    auto_init_lps331ap();
+#ifdef MODULE_LPSXXX
+    extern void auto_init_lpsxxx(void);
+    auto_init_lpsxxx();
 #endif
 #ifdef MODULE_LSM303DLHC
     extern void auto_init_lsm303dlhc(void);
@@ -419,6 +427,10 @@ void auto_init(void)
     extern void auto_init_lsm6dsl(void);
     auto_init_lsm6dsl();
 #endif
+#ifdef MODULE_LTC4150
+    extern void auto_init_ltc4150(void);
+    auto_init_ltc4150();
+ #endif
 #ifdef MODULE_MAG3110
     extern void auto_init_mag3110(void);
     auto_init_mag3110();
@@ -447,9 +459,17 @@ void auto_init(void)
     extern void auto_init_pulse_counter(void);
     auto_init_pulse_counter();
 #endif
+#ifdef MODULE_SHT2X
+    extern void auto_init_sht2x(void);
+    auto_init_sht2x();
+#endif
 #ifdef MODULE_SHT3X
     extern void auto_init_sht3x(void);
     auto_init_sht3x();
+#endif
+#ifdef MODULE_SDS011
+    extern void auto_init_sds011(void);
+    auto_init_sds011();
 #endif
 #ifdef MODULE_SI114X
     extern void auto_init_si114x(void);

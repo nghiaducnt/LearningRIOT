@@ -60,7 +60,7 @@ static inline void _get_iid(uint8_t *iid)
 
 static int _get_max_pkt_size(netdev_t *dev, void *value, size_t max_len)
 {
-    return netdev_eth_get(dev, NETOPT_MAX_PACKET_SIZE, value, max_len);
+    return netdev_eth_get(dev, NETOPT_MAX_PDU_SIZE, value, max_len);
 }
 
 static int _get_src_len(netdev_t *dev, void *value, size_t max_len)
@@ -172,7 +172,7 @@ void _net_init(void)
 
     netdev_test_setup(&netdev, NULL);
     netdev_test_set_get_cb(&netdev, NETOPT_SRC_LEN, _get_src_len);
-    netdev_test_set_get_cb(&netdev, NETOPT_MAX_PACKET_SIZE,
+    netdev_test_set_get_cb(&netdev, NETOPT_MAX_PDU_SIZE,
                             _get_max_pkt_size);
     netdev_test_set_get_cb(&netdev, NETOPT_ADDRESS, _get_addr);
     netdev_test_set_get_cb(&netdev, NETOPT_ADDR_LEN,
@@ -204,7 +204,7 @@ void _net_init(void)
     ip6_addr_t local6;
     s8_t idx;
 
-    memcpy(&local6.addr, local6_a, sizeof(local6));
+    memcpy(&local6.addr, local6_a, sizeof(local6_a));
     ip6_addr_clear_zone(&local6);
     netif_add_ip6_address(&netif, &local6, &idx);
     for (int i = 0; i <= idx; i++) {
@@ -241,7 +241,7 @@ void _prepare_send_checks(void)
         struct nd6_neighbor_cache_entry *nc = &neighbor_cache[i];
         if (nc->state == ND6_NO_ENTRY) {
             nc->state = ND6_REACHABLE;
-            memcpy(&nc->next_hop_address, remote6, sizeof(ip6_addr_t));
+            memcpy(&nc->next_hop_address, remote6, sizeof(remote6));
             ip6_addr_assign_zone(&nc->next_hop_address,
                                  IP6_UNICAST, &netif);
             memcpy(&nc->lladdr, mac, 6);

@@ -27,11 +27,6 @@
 #define ENABLE_DEBUG    (0)
 #include "debug.h"
 
-#if ENABLE_DEBUG
-/* For PRIu16 etc. */
-#include <inttypes.h>
-#endif
-
 static kernel_pid_t _pid = KERNEL_PID_UNDEF;
 
 #if ENABLE_DEBUG
@@ -60,6 +55,11 @@ kernel_pid_t gnrc_sixlowpan_init(void)
     return _pid;
 }
 
+kernel_pid_t gnrc_sixlowpan_get_pid(void)
+{
+    return _pid;
+}
+
 void gnrc_sixlowpan_dispatch_recv(gnrc_pktsnip_t *pkt, void *context,
                                   unsigned page)
 {
@@ -73,6 +73,7 @@ void gnrc_sixlowpan_dispatch_recv(gnrc_pktsnip_t *pkt, void *context,
          ptr = ptr->next) {
         if ((ptr->next) && (ptr->next->type == GNRC_NETTYPE_NETIF)) {
             type = ptr->type;
+            break;
         }
     }
 #else   /* MODULE_GNRC_IPV6 */
@@ -128,7 +129,6 @@ void gnrc_sixlowpan_multiplex_by_size(gnrc_pktsnip_t *pkt,
             gnrc_pktbuf_release_error(pkt, ENOMEM);
             return;
         }
-        fragment_msg->pid = netif->pid;
         fragment_msg->pkt = pkt;
         fragment_msg->datagram_size = orig_datagram_size;
         /* Sending the first fragment has an offset==0 */
@@ -222,8 +222,7 @@ static void _receive(gnrc_pktsnip_t *pkt)
     }
 #endif
     else {
-        DEBUG("6lo: dispatch %02" PRIx8 " ... is not supported\n",
-              dispatch[0]);
+        DEBUG("6lo: dispatch %02x... is not supported\n", dispatch[0]);
         gnrc_pktbuf_release(pkt);
         return;
     }

@@ -113,6 +113,9 @@ gnrc_pktsnip_t *gnrc_pktbuf_add(gnrc_pktsnip_t *next, const void *data, size_t s
  * @param[in] size  The size of the new packet snip.
  * @param[in] type  The type of the new packet snip.
  *
+ * @note    It's not guaranteeed that `result->data` points to the same address
+ *          as the original `pkt->data`.
+ *
  * @return  The new packet snip in @p pkt on success.
  * @return  NULL, if pkt == NULL or size == 0 or size > pkt->size or pkt->data == NULL.
  * @return  NULL, if no space is left in the packet buffer.
@@ -186,23 +189,6 @@ static inline void gnrc_pktbuf_release(gnrc_pktsnip_t *pkt)
  *          enough space in the packet buffer.
  */
 gnrc_pktsnip_t *gnrc_pktbuf_start_write(gnrc_pktsnip_t *pkt);
-
-/**
- * @brief   Create a IOVEC representation of the packet pointed to by *pkt*
- *
- * @pre `(len != NULL)`
- *
- * @details This function will create a new packet snip in the packet buffer,
- *          which points to the given *pkt* and contains a IOVEC representation
- *          of the referenced packet in its data section.
- *
- * @param[in]  pkt  Packet to export as IOVEC
- * @param[out] len  Number of elements in the IOVEC
- *
- * @return  Pointer to the 'IOVEC packet snip'
- * @return  NULL, if packet is empty of the packet buffer is full
- */
-gnrc_pktsnip_t *gnrc_pktbuf_get_iovec(gnrc_pktsnip_t *pkt, size_t *len);
 
 /**
  * @brief   Deletes a snip from a packet and the packet buffer.

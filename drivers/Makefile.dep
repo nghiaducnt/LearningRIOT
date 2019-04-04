@@ -1,5 +1,9 @@
 # driver dependencies (in alphabetical order)
 
+ifneq (,$(filter ad7746,$(USEMODULE)))
+  FEATURES_REQUIRED += periph_i2c
+endif
+
 ifneq (,$(filter adc%1c,$(USEMODULE)))
   FEATURES_REQUIRED += periph_gpio_irq
   FEATURES_REQUIRED += periph_i2c
@@ -28,8 +32,8 @@ endif
 ifneq (,$(filter at,$(USEMODULE)))
   FEATURES_REQUIRED += periph_uart
   USEMODULE += fmt
-  USEMODULE += xtimer
   USEMODULE += isrpipe
+  USEMODULE += isrpipe_read_timeout
 endif
 
 ifneq (,$(filter at30tse75x,$(USEMODULE)))
@@ -118,6 +122,10 @@ endif
 
 ifneq (,$(filter ds1307,$(USEMODULE)))
   FEATURES_REQUIRED += periph_i2c
+endif
+
+ifneq (,$(filter ds3234,$(USEMODULE)))
+  FEATURES_REQUIRED += periph_spi
 endif
 
 ifneq (,$(filter dsp0401,$(USEMODULE)))
@@ -260,7 +268,11 @@ ifneq (,$(filter lpd8808,$(USEMODULE)))
   FEATURES_REQUIRED += periph_gpio
 endif
 
-ifneq (,$(filter lps331ap,$(USEMODULE)))
+ifneq (,$(filter lps331ap lps2%hb,$(USEMODULE)))
+  USEMODULE += lpsxxx
+endif
+
+ifneq (,$(filter lpsxxx,$(USEMODULE)))
   FEATURES_REQUIRED += periph_i2c
 endif
 
@@ -270,6 +282,16 @@ endif
 
 ifneq (,$(filter lsm6dsl,$(USEMODULE)))
   FEATURES_REQUIRED += periph_i2c
+  USEMODULE += xtimer
+endif
+
+ifneq (,$(filter ltc4150_bidirectional,$(USEMODULE)))
+  USEMODULE += ltc4150
+endif
+
+ifneq (,$(filter ltc4150,$(USEMODULE)))
+  FEATURES_REQUIRED += periph_gpio
+  FEATURES_REQUIRED += periph_gpio_irq
   USEMODULE += xtimer
 endif
 
@@ -283,6 +305,10 @@ endif
 
 ifneq (,$(filter mma8x5x,$(USEMODULE)))
   FEATURES_REQUIRED += periph_i2c
+endif
+
+ifneq (,$(filter motor_driver,$(USEMODULE)))
+  FEATURES_REQUIRED += periph_pwm
 endif
 
 ifneq (,$(filter mpl3115a2,$(USEMODULE)))
@@ -384,6 +410,10 @@ ifneq (,$(filter sdcard_spi,$(USEMODULE)))
   USEMODULE += xtimer
 endif
 
+ifneq (,$(filter sds011,$(USEMODULE)))
+  FEATURES_REQUIRED += periph_uart
+endif
+
 ifneq (,$(filter servo,$(USEMODULE)))
   FEATURES_REQUIRED += periph_pwm
 endif
@@ -392,6 +422,11 @@ ifneq (,$(filter sht1%,$(USEMODULE)))
   USEMODULE += sht1x
   FEATURES_REQUIRED += periph_gpio
   USEMODULE += xtimer
+endif
+
+ifneq (,$(filter sht2x,$(USEMODULE)))
+  USEMODULE += xtimer
+  FEATURES_REQUIRED += periph_i2c
 endif
 
 ifneq (,$(filter sht3x,$(USEMODULE)))

@@ -2,6 +2,9 @@ MODULE = shell_commands
 
 SRC = shell_commands.c sc_sys.c
 
+ifneq (,$(filter app_metadata,$(USEMODULE)))
+  SRC += sc_app_metadata.c
+endif
 ifneq (,$(filter mci,$(USEMODULE)))
   SRC += sc_disk.c
 endif
@@ -37,7 +40,7 @@ ifneq (,$(filter gnrc_ipv6_blacklist,$(USEMODULE)))
 endif
 ifneq (,$(filter gnrc_icmpv6_echo,$(USEMODULE)))
 ifneq (,$(filter xtimer,$(USEMODULE)))
-  SRC += sc_icmpv6_echo.c
+  SRC += sc_gnrc_icmpv6_echo.c
 endif
 endif
 ifneq (,$(filter gnrc_pktbuf_cmd,$(USEMODULE)))
@@ -72,6 +75,10 @@ endif
 
 ifneq (,$(filter periph_rtc,$(USEMODULE)))
   SRC += sc_rtc.c
+endif
+
+ifneq (,$(filter i2c_scan,$(USEMODULE)))
+  SRC += sc_i2c_scan.c
 endif
 
 include $(RIOTBASE)/Makefile.base

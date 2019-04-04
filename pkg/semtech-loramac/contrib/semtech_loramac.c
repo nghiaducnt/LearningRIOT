@@ -31,6 +31,7 @@
 #include "mutex.h"
 
 #include "net/netdev.h"
+#include "net/netdev/lora.h"
 #include "net/loramac.h"
 
 #include "sx127x.h"
@@ -39,6 +40,7 @@
 
 #include "semtech_loramac.h"
 #include "LoRaMac.h"
+#include "LoRaMacTest.h"
 #include "region/Region.h"
 
 #ifdef MODULE_PERIPH_EEPROM
@@ -239,6 +241,7 @@ static void mcps_indication(McpsIndication_t *indication)
         msg.content.ptr = indication;
     }
     else {
+        DEBUG("[semtech-loramac] MCPS indication: TX done\n");
         msg.type = MSG_TYPE_LORAMAC_TX_STATUS;
         msg.content.value = SEMTECH_LORAMAC_TX_DONE;
     }
@@ -425,6 +428,9 @@ void _init_loramac(semtech_loramac_t *mac,
     primitives->MacMlmeIndication = mlme_indication;
     LoRaMacInitialization(&semtech_loramac_radio_events, primitives, callbacks,
                           LORAMAC_ACTIVE_REGION);
+#ifdef DISABLE_LORAMAC_DUTYCYCLE
+    LoRaMacTestSetDutyCycleOn(false);
+#endif
     mutex_unlock(&mac->lock);
 
     semtech_loramac_set_dr(mac, LORAMAC_DEFAULT_DR);
@@ -433,10 +439,14 @@ void _init_loramac(semtech_loramac_t *mac,
     semtech_loramac_set_class(mac, LORAMAC_DEFAULT_DEVICE_CLASS);
     semtech_loramac_set_tx_port(mac, LORAMAC_DEFAULT_TX_PORT);
     semtech_loramac_set_tx_mode(mac, LORAMAC_DEFAULT_TX_MODE);
+    semtech_loramac_set_system_max_rx_error(mac,
+            LORAMAC_DEFAULT_SYSTEM_MAX_RX_ERROR);
+    semtech_loramac_set_min_rx_symbols(mac, LORAMAC_DEFAULT_MIN_RX_SYMBOLS);
     mac->link_chk.available = false;
 #ifdef MODULE_PERIPH_EEPROM
     _read_loramac_config(mac);
 #endif
+
 }
 
 static void _join_otaa(semtech_loramac_t *mac)
@@ -548,18 +558,16 @@ static void _send(semtech_loramac_t *mac, void *arg)
 {
     loramac_send_params_t params = *(loramac_send_params_t *)arg;
     uint8_t status = _semtech_loramac_send(mac, params.payload, params.len);
-    if (status != SEMTECH_LORAMAC_TX_OK) {
-        msg_t msg;
-        msg.type = MSG_TYPE_LORAMAC_TX_STATUS;
-        msg.content.value = (uint8_t)status;
-        msg_send(&msg, semtech_loramac_pid);
-    }
 #ifdef MODULE_PERIPH_EEPROM
-    else {
+    if (status == SEMTECH_LORAMAC_TX_OK) {
         /* save the uplink counter */
         _save_uplink_counter(mac);
     }
 #endif
+    msg_t msg;
+    msg.type = MSG_TYPE_LORAMAC_TX_STATUS;
+    msg.content.value = (uint8_t)status;
+    msg_send(&msg, semtech_loramac_pid);
 }
 
 static void _semtech_loramac_call(semtech_loramac_func_t func, void *arg)
@@ -576,7 +584,7 @@ static void _semtech_loramac_call(semtech_loramac_func_t func, void *arg)
 
 static void _semtech_loramac_event_cb(netdev_t *dev, netdev_event_t event)
 {
-    netdev_sx127x_lora_packet_info_t packet_info;
+    netdev_lora_rx_info_t packet_info;
 
     msg_t msg;
     msg.content.ptr = dev;
@@ -627,12 +635,18 @@ static void _semtech_loramac_event_cb(netdev_t *dev, netdev_event_t event)
 
         case NETDEV_EVENT_FHSS_CHANGE_CHANNEL:
             DEBUG("[semtech-loramac] FHSS channel change\n");
-            semtech_loramac_radio_events.FhssChangeChannel(((sx127x_t *)dev)->_internal.last_channel);
+            if(semtech_loramac_radio_events.FhssChangeChannel) {
+                semtech_loramac_radio_events.FhssChangeChannel((
+                            (sx127x_t *)dev)->_internal.last_channel);
+            }
             break;
 
         case NETDEV_EVENT_CAD_DONE:
             DEBUG("[semtech-loramac] test: CAD done\n");
-            semtech_loramac_radio_events.CadDone(((sx127x_t *)dev)->_internal.is_last_cad_success);
+            if(semtech_loramac_radio_events.CadDone) {
+                semtech_loramac_radio_events.CadDone((
+                            (sx127x_t *)dev)->_internal.is_last_cad_success);
+            }
             break;
 
         default:
@@ -704,7 +718,7 @@ void *_semtech_loramac_event_loop(void *arg)
                 }
                 case MSG_TYPE_LORAMAC_TX_STATUS:
                 {
-                    DEBUG("[semtech-loramac] loramac TX status msg\n");
+                    DEBUG("[semtech-loramac] received TX status\n");
                     if (msg.content.value == SEMTECH_LORAMAC_TX_SCHEDULE) {
                         DEBUG("[semtech-loramac] schedule immediate TX\n");
                         uint8_t prev_port = mac->port;
@@ -713,6 +727,7 @@ void *_semtech_loramac_event_loop(void *arg)
                         mac->port = prev_port;
                     }
                     else {
+                        DEBUG("[semtech-loramac] forward TX status to caller thread\n");
                         msg_t msg_ret;
                         msg_ret.type = msg.type;
                         msg_ret.content.value = msg.content.value;
@@ -824,13 +839,23 @@ uint8_t semtech_loramac_send(semtech_loramac_t *mac, uint8_t *data, uint8_t len)
         return SEMTECH_LORAMAC_NOT_JOINED;
     }
 
+    /* Correctly set the caller pid */
+    mac->caller_pid = thread_getpid();
+
     loramac_send_params_t params;
     params.payload = data;
     params.len = len;
 
     _semtech_loramac_call(_send, &params);
 
-    return SEMTECH_LORAMAC_TX_SCHEDULE;
+    /* Wait for TX status information from the MAC */
+    msg_t msg;
+    msg_receive(&msg);
+    if (msg.type != MSG_TYPE_LORAMAC_TX_STATUS) {
+        return SEMTECH_LORAMAC_TX_ERROR;
+    }
+
+    return (uint8_t)msg.content.value;
 }
 
 uint8_t semtech_loramac_recv(semtech_loramac_t *mac)

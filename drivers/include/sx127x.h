@@ -46,8 +46,8 @@
  * - South Korea: KR920-923 (from 920.9MHz to 923.3MHz exactly)
  *
  * For more information on Semtech SX1272 and SX1276 modules see:
- * - [SX1272/73 datasheet](http://www.semtech.com/images/datasheet/sx1272.pdf)
- * - [SX1276/77/78/79 datasheet](http://www.semtech.com/images/datasheet/sx1276_77_78_79.pdf)
+ * - [SX1272/73 datasheet](https://www.semtech.com/uploads/documents/sx1272.pdf)
+ * - [SX1276/77/78/79 datasheet](https://www.semtech.com/uploads/documents/DS_SX1276-7-8-9_W_APP_V5.pdf)
  *
  * @{
  *
@@ -94,6 +94,9 @@ extern "C" {
 #define SX127X_IRQ_DIO5                  (1<<5)  /**< DIO5 IRQ */
 #ifdef SX127X_USE_DIO_MULTI
 #define SX127X_IRQ_DIO_MULTI             (1<<6)  /**< DIO MULTI IRQ */
+#endif
+#ifndef SX127X_DIO_PULL_MODE
+#define SX127X_DIO_PULL_MODE             (GPIO_IN_PD) /**< pull down DIOx */
 #endif
 /** @} */
 

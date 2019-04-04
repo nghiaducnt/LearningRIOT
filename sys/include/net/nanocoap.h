@@ -26,6 +26,25 @@
  * capital precede lower case). nanocoap provides the
  * COAP_WELL_KNOWN_CORE_DEFAULT_HANDLER entry for `/.well-known/core`.
  *
+ * ### Path matching ###
+ * By default the URI-path of an incoming request should match exactly one of
+ * the registered resources. But also, a resource can be configured to
+ * match just a prefix of the URI-path of the request by adding the
+ * @ref COAP_MATCH_SUBTREE option to coap_resource_t::methods.
+ *
+ * For example, if a resource is configured with a
+ * @ref coap_resource_t::path "path" `/resource01` and the
+ * @ref COAP_MATCH_SUBTREE option is used it would match any of `/resource01/`,
+ * `/resource01/sub/path`, `/resource01alt`.
+ *
+ * If the behavior of matching `/resource01alt` is not wanted and only subtrees
+ * are wanted to match, the path should be `/resource01/`.
+ *
+ * If in addition just `/resource01` is wanted to match, together with any
+ * subtrees of `/resource01/`, then a first resource with the path `/resource01`
+ * and exact matching should be register, and then a second one with the path
+ * `/resource01/` and subtree matching.
+ *
  * ### Handler functions ###
  *
  * For each resource, you must implement a ::coap_handler_t handler function.
@@ -69,10 +88,13 @@
  *
  * - **minimal API** requires only a reference to the buffer for the message.
  * However, the caller must provide the last option number written as well as
- * the buffer position.
+ * the buffer position. The caller is primarily responsible for tracking and
+ * managing the space remaining in the buffer.
  *
  * - **struct-based API** uses a coap_pkt_t struct to conveniently track each
- * option as it is written and prepare for any payload.
+ * option as it is written and prepare for any payload. The caller must monitor
+ * space remaining in the buffer; however, the API *will not* write past the
+ * end of the buffer, and returns -ENOSPC when it is full.
  *
  * You must use one API exclusively for a given message. For either API, the
  * caller must write options in order by option number (see "CoAP option
@@ -89,6 +111,9 @@
  * option. These functions require the position in the buffer to start writing,
  * and return the number of bytes written.
  *
+ * @note You must ensure the buffer has enough space remaining to write each
+ * option. The API does not verify the safety of writing an option.
+ *
  * If there is a payload, append a payload marker (0xFF). Then write the
  * payload to within the maximum length remaining in the buffer.
  *
@@ -101,6 +126,10 @@
  * Next, use the coap_opt_add_xxx() functions to write each option, like
  * coap_opt_add_uint(). When all options have been added, call
  * coap_opt_finish().
+ *
+ * @note You must ensure the buffer has enough space remaining to write each
+ * option. You can monitor `coap_pkt_t.payload_len` for remaining space, or
+ * watch for a -ENOSPC return value from the API.
  *
  * Finally, write any message payload at the coap_pkt_t _payload_ pointer
  * attribute. The _payload_len_ attribute provides the available length in the
@@ -170,6 +199,8 @@ extern "C" {
 #define COAP_POST               (0x2)
 #define COAP_PUT                (0x4)
 #define COAP_DELETE             (0x8)
+#define COAP_MATCH_SUBTREE      (0x8000) /**< Path is considered as a prefix
+                                              when matching */
 /** @} */
 
 /**
@@ -322,8 +353,11 @@ int coap_parse(coap_pkt_t *pkt, uint8_t *buf, size_t len);
  *
  * This function can be used to create a reply to any CoAP request packet.  It
  * will create the reply packet header based on parameters from the request
- * (e.g., id, token).  Passing a non-zero @p payload_len will ensure the payload
- * fits into the buffer along with the header.
+ * (e.g., id, token).
+ *
+ * Passing a non-zero @p payload_len will ensure the payload fits into the
+ * buffer along with the header. For this validation, payload_len must include
+ * any options, the payload marker, as well as the payload proper.
  *
  * @param[in]   pkt         packet to reply to
  * @param[in]   code        reply code (e.g., COAP_CODE_204)
@@ -333,6 +367,7 @@ int coap_parse(coap_pkt_t *pkt, uint8_t *buf, size_t len);
  *
  * @returns     size of reply packet on success
  * @returns     <0 on error
+ * @returns     -ENOSPC if @p rbuf too small
  */
 ssize_t coap_build_reply(coap_pkt_t *pkt, unsigned code,
                          uint8_t *rbuf, unsigned rlen, unsigned payload_len);
@@ -343,7 +378,7 @@ ssize_t coap_build_reply(coap_pkt_t *pkt, unsigned code,
  * This is a simple wrapper that allows for building CoAP replies for simple
  * use-cases.
  *
- * The reply will be written to @p buf. Is @p payload and @p payload_len
+ * The reply will be written to @p buf. If @p payload and @p payload_len are
  * non-zero, the payload will be copied into the resulting reply packet.
  *
  * @param[in]   pkt         packet to reply to
@@ -356,6 +391,7 @@ ssize_t coap_build_reply(coap_pkt_t *pkt, unsigned code,
  *
  * @returns     size of reply packet on success
  * @returns     <0 on error
+ * @returns     -ENOSPC if @p buf too small
  */
 ssize_t coap_reply_simple(coap_pkt_t *pkt,
                           unsigned code,
@@ -615,7 +651,8 @@ size_t coap_put_block1_ok(uint8_t *pkt_pos, coap_block1_t *block1, uint16_t last
  * @param[in]     separator   character used in @p string to separate parts
  *
  * @return        number of bytes written to buffer
- * @return        -ENOSPC if no available options
+ * @return        <0 on error
+ * @return        -ENOSPC if no available options or insufficient buffer space
  */
 ssize_t coap_opt_add_string(coap_pkt_t *pkt, uint16_t optnum, const char *string, char separator);
 
@@ -630,9 +667,28 @@ ssize_t coap_opt_add_string(coap_pkt_t *pkt, uint16_t optnum, const char *string
  * @param[in]     value       uint to encode
  *
  * @return        number of bytes written to buffer
- * @return        <0 reserved for error but not implemented yet
+ * @return        <0 on error
+ * @return        -ENOSPC if no available options or insufficient buffer space
  */
 ssize_t coap_opt_add_uint(coap_pkt_t *pkt, uint16_t optnum, uint32_t value);
+
+/**
+ * @brief   Append a Content-Format option to the pkt buffer
+ *
+ * @post pkt.payload advanced to first byte after option
+ * @post pkt.payload_len reduced by option length
+ *
+ * @param[in,out] pkt         pkt referencing target buffer
+ * @param[in]     format      COAP_FORMAT_xxx to use
+ *
+ * @return        number of bytes written to buffer
+ * @return        <0 on error
+ * @return        -ENOSPC if no available options or insufficient buffer space
+ */
+static inline ssize_t coap_opt_add_format(coap_pkt_t *pkt, uint16_t format)
+{
+    return coap_opt_add_uint(pkt, COAP_OPT_CONTENT_FORMAT, format);
+}
 
 /**
  * @brief   Finalizes options as required and prepares for payload
@@ -644,6 +700,7 @@ ssize_t coap_opt_add_uint(coap_pkt_t *pkt, uint16_t optnum, uint32_t value);
  * @param[in]     flags       see COAP_OPT_FINISH... macros
  *
  * @return        total number of bytes written to buffer
+ * @return        -ENOSPC if no buffer space for payload marker
  */
 ssize_t coap_opt_finish(coap_pkt_t *pkt, uint16_t flags);
 
@@ -1042,6 +1099,23 @@ static inline unsigned coap_method2flag(unsigned code)
 {
     return (1 << (code - 1));
 }
+
+/**
+ * @brief   Checks if a CoAP resource path matches a given URI
+ *
+ * Builds on strcmp() with rules specific to URI path matching
+ *
+ * @note This function is not intended for application use.
+ * @internal
+ *
+ * @param[in] resource CoAP resource to check
+ * @param[in] uri Null-terminated string URI to compare
+ *
+ * @return 0  if the resource path matches the URI
+ * @return <0 if the resource path sorts before the URI
+ * @return >0 if the resource path sorts after the URI
+ */
+int coap_match_path(const coap_resource_t *resource, uint8_t *uri);
 
 #if defined(MODULE_GCOAP) || defined(DOXYGEN)
 /**

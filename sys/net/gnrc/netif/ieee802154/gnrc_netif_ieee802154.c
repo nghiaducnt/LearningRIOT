@@ -48,6 +48,7 @@ gnrc_netif_t *gnrc_netif_ieee802154_create(char *stack, int stacksize,
 
 static gnrc_pktsnip_t *_make_netif_hdr(uint8_t *mhr)
 {
+    gnrc_netif_hdr_t *hdr;
     gnrc_pktsnip_t *snip;
     uint8_t src[IEEE802154_LONG_ADDRESS_LEN], dst[IEEE802154_LONG_ADDRESS_LEN];
     int src_len, dst_len;
@@ -65,13 +66,31 @@ static gnrc_pktsnip_t *_make_netif_hdr(uint8_t *mhr)
         DEBUG("_make_netif_hdr: no space left in packet buffer\n");
         return NULL;
     }
+    hdr = snip->data;
     /* set broadcast flag for broadcast destination */
     if ((dst_len == 2) && (dst[0] == 0xff) && (dst[1] == 0xff)) {
-        gnrc_netif_hdr_t *hdr = snip->data;
         hdr->flags |= GNRC_NETIF_HDR_FLAGS_BROADCAST;
+    }
+    /* set flags for pending frames */
+    if (mhr[0] & IEEE802154_FCF_FRAME_PEND) {
+        hdr->flags |= GNRC_NETIF_HDR_FLAGS_MORE_DATA;
     }
     return snip;
 }
+
+#if MODULE_GNRC_NETIF_DEDUP
+static inline bool _already_received(gnrc_netif_t *netif,
+                                     gnrc_netif_hdr_t *netif_hdr,
+                                     uint8_t *mhr)
+{
+    const uint8_t seq = ieee802154_get_seq(mhr);
+
+    return  (netif->last_pkt.seq == seq) &&
+            (netif->last_pkt.src_len == netif_hdr->src_l2addr_len) &&
+            (memcmp(netif->last_pkt.src, gnrc_netif_hdr_get_src_addr(netif_hdr),
+                    netif_hdr->src_l2addr_len) == 0);
+}
+#endif /* MODULE_GNRC_NETIF_DEDUP */
 
 static gnrc_pktsnip_t *_recv(gnrc_netif_t *netif)
 {
@@ -95,6 +114,11 @@ static gnrc_pktsnip_t *_recv(gnrc_netif_t *netif)
             gnrc_pktbuf_release(pkt);
             return NULL;
         }
+#ifdef MODULE_NETSTATS_L2
+        netif->stats.rx_count++;
+        netif->stats.rx_bytes += nread;
+#endif
+
         if (netif->flags & GNRC_NETIF_FLAGS_RAWMODE) {
             /* Raw mode, skip packet processing, but provide rx_info via
              * GNRC_NETTYPE_NETIF */
@@ -150,6 +174,18 @@ static gnrc_pktsnip_t *_recv(gnrc_netif_t *netif)
                 return NULL;
             }
 #endif
+#ifdef MODULE_GNRC_NETIF_DEDUP
+            if (_already_received(netif, hdr, ieee802154_hdr->data)) {
+                gnrc_pktbuf_release(pkt);
+                gnrc_pktbuf_release(netif_hdr);
+                DEBUG("_recv_ieee802154: packet dropped by deduplication\n");
+                return NULL;
+            }
+            memcpy(netif->last_pkt.src, gnrc_netif_hdr_get_src_addr(hdr),
+                   hdr->src_l2addr_len);
+            netif->last_pkt.src_len = hdr->src_l2addr_len;
+            netif->last_pkt.seq = ieee802154_get_seq(ieee802154_hdr->data);
+#endif /* MODULE_GNRC_NETIF_DEDUP */
 
             hdr->lqi = rx_info.lqi;
             hdr->rssi = rx_info.rssi;
@@ -241,10 +277,10 @@ static int _send(gnrc_netif_t *netif, gnrc_pktsnip_t *pkt)
 #ifdef MODULE_NETSTATS_L2
     if (netif_hdr->flags &
             (GNRC_NETIF_HDR_FLAGS_BROADCAST | GNRC_NETIF_HDR_FLAGS_MULTICAST)) {
-        netif->dev->stats.tx_mcast_count++;
+        netif->stats.tx_mcast_count++;
     }
     else {
-        netif->dev->stats.tx_unicast_count++;
+        netif->stats.tx_unicast_count++;
     }
 #endif
 #ifdef MODULE_GNRC_MAC

@@ -44,11 +44,6 @@ extern int _get_weather_handler(int argc, char **argv);
 extern int _sht_config_handler(int argc, char **argv);
 #endif
 
-#ifdef MODULE_LTC4150
-extern int _get_current_handler(int argc, char **argv);
-extern int _reset_current_handler(int argc, char **argv);
-#endif
-
 #ifdef MODULE_AT30TSE75X
 extern int _at30tse75x_handler(int argc, char **argv);
 #endif
@@ -71,7 +66,7 @@ extern int _read_bytes(int argc, char **argv);
 
 #ifdef MODULE_GNRC_ICMPV6_ECHO
 #ifdef MODULE_XTIMER
-extern int _icmpv6_ping(int argc, char **argv);
+extern int _gnrc_icmpv6_ping(int argc, char **argv);
 #endif
 #endif
 
@@ -146,6 +141,14 @@ extern int _can_handler(int argc, char **argv);
 extern int _cord_ep_handler(int argc, char **argv);
 #endif
 
+#ifdef MODULE_APP_METADATA
+extern int _app_metadata_handler(int argc, char **argv);
+#endif
+
+#ifdef MODULE_I2C_SCAN
+extern int _i2c_scan(int argc, char **argv);
+#endif
+
 const shell_command_t _shell_command_list[] = {
     {"reboot", "Reboot the node", _reboot_handler},
 #ifdef MODULE_CONFIG
@@ -163,10 +166,6 @@ const shell_command_t _shell_command_list[] = {
     {"weather", "Prints measured humidity and temperature.", _get_weather_handler},
     {"sht-config", "Get/set SHT10/11/15 sensor configuration.", _sht_config_handler},
 #endif
-#ifdef MODULE_LTC4150
-    {"cur", "Prints current and average power consumption.", _get_current_handler},
-    {"rstcur", "Resets coulomb counter.", _reset_current_handler},
-#endif
 #ifdef MODULE_AT30TSE75X
     {"at30tse75x", "Test AT30TSE75X temperature sensor", _at30tse75x_handler},
 #endif
@@ -179,7 +178,7 @@ const shell_command_t _shell_command_list[] = {
 #endif
 #ifdef MODULE_GNRC_ICMPV6_ECHO
 #ifdef MODULE_XTIMER
-    { "ping6", "Ping via ICMPv6", _icmpv6_ping },
+    { "ping6", "Ping via ICMPv6", _gnrc_icmpv6_ping },
 #endif
 #endif
 #ifdef MODULE_RANDOM
@@ -239,6 +238,12 @@ const shell_command_t _shell_command_list[] = {
 #endif
 #ifdef MODULE_CORD_EP
     {"cord_ep", "Resource directory endpoint commands", _cord_ep_handler },
+#endif
+#ifdef MODULE_APP_METADATA
+    {"app_metadata", "Returns application metadata", _app_metadata_handler },
+#endif
+#ifdef MODULE_I2C_SCAN
+    { "i2c_scan", "Performs an I2C bus scan", _i2c_scan },
 #endif
     {NULL, NULL, NULL}
 };

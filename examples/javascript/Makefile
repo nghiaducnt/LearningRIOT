@@ -14,10 +14,11 @@ BOARD_INSUFFICIENT_MEMORY := airfy-beacon b-l072z-lrwan1 blackpill bluepill call
                              nucleo-f103rb nucleo-f302r8 nucleo-f334r8 \
                              nucleo-f410rb nucleo-l053r8 nucleo-l073rz \
                              nucleo-f031k6 nucleo-f042k6 nucleo-f303k8 \
-                             nucleo-l031k6 opencm904 spark-core stm32f0discovery \
-                             yunjia-nrf51822
+                             nucleo-l031k6 opencm904 saml10-xpro saml11-xpro \
+                             spark-core stm32f0discovery yunjia-nrf51822
 
-BOARD_BLACKLIST := arduino-duemilanove arduino-mega2560 arduino-uno chronos \
+BOARD_BLACKLIST := arduino-duemilanove arduino-mega2560 arduino-nano \
+                   arduino-uno chronos \
                    msb-430 msb-430h telosb waspmote-pro wsn430-v1_3b \
                    wsn430-v1_4 z1 pic32-wifire pic32-clicker jiminy-mega256rfr2 \
                    mega-xplained

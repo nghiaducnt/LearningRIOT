@@ -29,6 +29,7 @@ export RIOTPROJECT           # Top level git root of the project being built, or
 export RIOTMAKE              # Location of all supplemental Makefiles (such as this file)
 export BINDIRBASE            # This is the folder where the application should be built in. For each BOARD a different subfolder is used.
 export BINDIR                # This is the folder where the application should be built in.
+export BUILD_DIR             # This is the base folder to store common build files and artifacts, e.g. test results.
 export APPDIR                # The base folder containing the application
 export PKGDIRBASE            # The base folder for building packages
 
@@ -55,7 +56,7 @@ export ARFLAGS               # Command-line options to pass to AR, default `rcs`
 export AS                    # The assembler.
 export ASFLAGS               # Flags for the assembler.
 export LINK                  # The command used to link the files. Must take the same parameters as GCC, i.e. "ld" won't work.
-export LINKFLAGS             # Flags to supply in the linking step.
+# LINKFLAGS                  # Flags to supply in the linking step.
 export LTOFLAGS              # extra CFLAGS for compiling with link time optimization
 export OBJCOPY               # The command used to create the HEXFILE.
 export OFLAGS                # The parameter for OBJCOPY, e.g. to strip the debug information.
@@ -71,11 +72,12 @@ export GIT_CACHE_DIR         # path to git-cache cache directory
 export FLASHER               # The command to call on "make flash".
 export FFLAGS                # The parameters to supply to FLASHER.
 export FLASH_ADDR            # Define an offset to flash code into ROM memory.
-export TERMPROG              # The command to call on "make term".
-export TERMFLAGS             # Additional parameters to supply to TERMPROG.
+# TERMPROG                   # The command to call on "make term".
+# TERMFLAGS                  # Additional parameters to supply to TERMPROG.
 export PORT                  # The port to connect the TERMPROG to.
 export ELFFILE               # The unstripped result of the compilation.
 export HEXFILE               # The stripped result of the compilation.
+# FLASHFILE                  # The output file used for flashing (transition phase: only if defined)
 export DEBUGGER              # The command to call on "make debug", usually a script starting the GDB front-end.
 export DEBUGGER_FLAGS        # The parameters to supply to DEBUGGER.
 export DEBUGSERVER           # The command to call on "make debug-server", usually a script starting the GDB server.
