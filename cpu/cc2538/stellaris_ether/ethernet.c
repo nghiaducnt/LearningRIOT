@@ -972,6 +972,8 @@ EthernetIntRegister(unsigned long ulBase, void (*pfnHandler)(void))
     //
     // Check the arguments.
     //
+    (void)ulBase;
+    (void)pfnHandler;
     ASSERT(ulBase == ETH_BASE);
     ASSERT(pfnHandler != 0);
 
@@ -1011,6 +1013,7 @@ EthernetIntUnregister(unsigned long ulBase)
     //
     // Check the arguments.
     //
+    (void)ulBase;
     ASSERT(ulBase == ETH_BASE);
 
     //

@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include "sched.h"
 #include "thread.h"
-
+#include "irq.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -52,12 +52,19 @@ extern "C" {
 #include "cpu_conf.h"
 #define DEBUG_PRINT(...) \
     do { \
+	if (irq_is_in()) { \
+            printf("In ISR:"); \
+            printf(__VA_ARGS__); \
+	} else { \
         if ((sched_active_thread == NULL) || (sched_active_thread->stack_size >= THREAD_EXTRA_STACKSIZE_PRINTF)) { \
             printf(__VA_ARGS__); \
         } \
         else { \
             puts("Cannot debug, stack too small"); \
+            printf("%s %d: stack[%d]\n", __FILE__, __LINE__, sched_active_thread->stack_size); \
+            printf("\tstack name: %s\n", sched_active_thread->name); \
         } \
+	} \
     } while (0)
 #else
 #define DEBUG_PRINT(...) printf(__VA_ARGS__)

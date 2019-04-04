@@ -14,7 +14,7 @@
  * @author      Ho Nghia Duc <nghiaducnt@gmail.com>
  */
 
-#define ENABLE_DEBUG (0)
+#define ENABLE_DEBUG (1)
 #include "debug.h"
 #include "log.h"
 
@@ -59,8 +59,7 @@ static inline void _irq_disable(void)
 #endif
 static int stellaris_eth_init(netdev_t *netdev)
 {
-    DEBUG("%s: netdev=%p\n", __func__, netdev);
-
+    DEBUG("stellaris:init\n");
     stellaris_eth_netdev_t* dev = (stellaris_eth_netdev_t*)netdev;
 
     mutex_lock(&dev->dev_lock);
@@ -87,13 +86,13 @@ static int stellaris_eth_init(netdev_t *netdev)
 
 static int stellaris_eth_send(netdev_t *netdev, const iolist_t *iolist)
 {
-    DEBUG("%s: netdev=%p iolist=%p\n", __func__, netdev, iolist);
+    DEBUG("stellaris: send\n");
     assert(netdev != NULL);
     assert(iolist != NULL);
 
     stellaris_eth_netdev_t* dev = (stellaris_eth_netdev_t*)netdev;
     if (!priv_stellaris_eth_dev.link_up) {
-        DEBUG("%s: link is down\n", __func__);
+        DEBUG("stellaris: link is down\n");
         return -ENODEV;
     }
     mutex_lock(&dev->dev_lock);
@@ -110,9 +109,7 @@ static int stellaris_eth_send(netdev_t *netdev, const iolist_t *iolist)
         dev->tx_len += iol->iol_len;
     }
 
-    #if ENABLE_DEBUG
-    printf ("%s: send %d byte\n", __func__, dev->tx_len);
-    #endif
+    DEBUG ("stellaris: send %d byte\n", dev->tx_len);
     /* send the the packet to the peer(s) mac address */
     EthernetPacketPutNonBlocking(ETH_BASE, dev->tx_buf, dev->tx_len);
     mutex_unlock(&dev->dev_lock);
@@ -121,8 +118,7 @@ static int stellaris_eth_send(netdev_t *netdev, const iolist_t *iolist)
 
 static int stellaris_eth_recv(netdev_t *netdev, void *buf, size_t len, void *info)
 {
-    DEBUG("%s: netdev=%p buf=%p len=%u info=%p\n",
-          __func__, netdev, buf, len, info);
+    (void)info;
     int size;
     assert(netdev != NULL);
 
@@ -147,8 +143,8 @@ static int stellaris_eth_recv(netdev_t *netdev, void *buf, size_t len, void *inf
 
     if (dev->rx_len > len) {
         /* buffer is smaller than the number of received bytes */
-        DEBUG("%s: Not enough space in receive buffer for %d bytes\n",
-              __func__, dev->rx_len);
+        DEBUG("stellaris: Not enough space in receive buffer for %d bytes\n",
+              dev->rx_len);
         mutex_unlock(&dev->dev_lock);
         return -ENOBUFS;
     }
@@ -171,8 +167,8 @@ static int stellaris_eth_recv(netdev_t *netdev, void *buf, size_t len, void *inf
 
 static int stellaris_eth_get(netdev_t *netdev, netopt_t opt, void *val, size_t max_len)
 {
-    DEBUG("%s: netdev=%p opt=%s val=%p len=%u\n",
-          __func__, netdev, netopt2str(opt), val, max_len);
+    DEBUG("stellaris: netdev=%p val=%p len=%u\n",
+          netdev, val, max_len);
 
     assert(netdev != NULL);
     assert(val != NULL);
@@ -192,8 +188,8 @@ static int stellaris_eth_get(netdev_t *netdev, netopt_t opt, void *val, size_t m
 
 static int stellaris_eth_set(netdev_t *netdev, netopt_t opt, const void *val, size_t max_len)
 {
-    DEBUG("%s: netdev=%p opt=%s val=%p len=%u\n",
-          __func__, netdev, netopt2str(opt), val, max_len);
+    DEBUG("stellaris: netdev=%p  val=%p len=%u\n",
+          netdev,  val, max_len);
 
     assert(netdev != NULL);
     assert(val != NULL);
@@ -238,8 +234,6 @@ static int stellaris_eth_set(netdev_t *netdev, netopt_t opt, const void *val, si
 
 static void stellaris_eth_isr(netdev_t *netdev)
 {
-    DEBUG("%s: netdev=%p\n", __func__, netdev);
-
     assert(netdev != NULL);
     stellaris_eth_netdev_t *dev = (stellaris_eth_netdev_t *) netdev;
     dev->irq_num++;
@@ -294,7 +288,6 @@ void isr_ethernet(void)
         		netdev->event_callback(netdev,
 				NETDEV_EVENT_LINK_DOWN);
 		}
-			
 	}
 	if (irq_status & ETH_INT_RXOF || irq_status & ETH_INT_RXER) {
         	netdev->event_callback(netdev,
@@ -305,10 +298,6 @@ void isr_ethernet(void)
 			NETDEV_EVENT_RX_COMPLETE);
 	}
     	if (irq_status & ETH_INT_TX) {
-        	#ifdef MODULE_NETSTATS_L2
-        	netdev->stats.tx_success++;
-        	netdev->stats.tx_bytes += priv_stellaris_eth_dev.tx_len;
-        	#endif
         	netdev->event_callback(netdev, NETDEV_EVENT_TX_COMPLETE);
     	}
 	if (irq_status & ETH_INT_TXER) {
