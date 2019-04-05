@@ -82,7 +82,7 @@ static void cpu_clock_init(void)
     SYS_CTRL->cc2538_sys_ctrl_clk_ctrl.CLOCK_CTRL = CLOCK_CTRL_VALUE;
     reg = (uint32_t *)&(SYS_CTRL->cc2538_sys_ctrl_clk_ctrl.CLOCK_CTRL);
 	*reg = CLOCK_CTRL_VALUE;
-	#ifndef QEMU
+#ifndef QEMU
     /* Wait for the new clock settings to take effect: */
     while ((SYS_CTRL->cc2538_sys_ctrl_clk_sta.CLOCK_STA ^ CLOCK_CTRL_VALUE) & CLOCK_STA_MASK);
 

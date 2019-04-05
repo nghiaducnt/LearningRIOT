@@ -14,7 +14,7 @@
  * @author      Ho Nghia Duc <nghiaducnt@gmail.com>
  */
 
-#define ENABLE_DEBUG (1)
+#define ENABLE_DEBUG (0)
 #include "debug.h"
 #include "log.h"
 
@@ -69,9 +69,6 @@ static int stellaris_eth_init(netdev_t *netdev)
     dev->irq = ETH_INT_PHY;
     EthernetEnable(ETH_BASE);
     EthernetIntEnable(ETH_BASE, dev->irq);
-    #ifdef MODULE_NETSTATS_L2
-    memset(&netdev->stats, 0, sizeof(netstats_t));
-    #endif
 
     mutex_unlock(&dev->dev_lock);
 #ifdef IN_EMULATION
@@ -156,39 +153,51 @@ static int stellaris_eth_recv(netdev_t *netdev, void *buf, size_t len, void *inf
     /* data has been copied, ready for next data */
     dev->rx_len = 0;
 
-    #ifdef MODULE_NETSTATS_L2
-    netdev->stats.rx_count++;
-    netdev->stats.rx_bytes += len;
-    #endif
-
     mutex_unlock(&dev->dev_lock);
     return size;
 }
 
 static int stellaris_eth_get(netdev_t *netdev, netopt_t opt, void *val, size_t max_len)
 {
-    DEBUG("stellaris: netdev=%p val=%p len=%u\n",
+    DEBUG("stellaris: get netdev=%p val=%p len=%u\n",
           netdev, val, max_len);
-
+    int res = -ENOTSUP;
+    stellaris_eth_netdev_t* dev = (stellaris_eth_netdev_t*)netdev;
     assert(netdev != NULL);
     assert(val != NULL);
 
     switch (opt) {
 	case NETOPT_DEVICE_TYPE:
-	    return NETDEV_TYPE_ETHERNET;
+	{
+            *((uint16_t *)val) = NETDEV_TYPE_ESP_NOW;
+            res = sizeof(uint16_t);
+            break;
+	}
+        case NETOPT_MAX_PDU_SIZE:
+	{
+            *((uint16_t *)val) = ETHERNET_DATA_LEN;
+            res = sizeof(uint16_t);
+            break;
+	}
         case NETOPT_ADDRESS:
+	{
+	    EthernetMACAddrGet(ETH_BASE, dev->addr);
+            memcpy(val, dev->addr, sizeof(dev->addr));
+            res = sizeof(dev->addr);
             assert(max_len == ETHERNET_ADDR_LEN);
-	    EthernetMACAddrGet(ETH_BASE, (unsigned char *)val);
-            return ETHERNET_ADDR_LEN;
+            res = ETHERNET_ADDR_LEN;
+            break;
+	}
         default:
-            return netdev_eth_get(netdev, opt, val, max_len);
+            DEBUG("stellaris: get %s not supported\n", netopt2str(opt));
+	    break;
     }
-    return 0;
+    return res;
 }
 
 static int stellaris_eth_set(netdev_t *netdev, netopt_t opt, const void *val, size_t max_len)
 {
-    DEBUG("stellaris: netdev=%p  val=%p len=%u\n",
+    DEBUG("stellaris: set netdev=%p  val=%p len=%u\n",
           netdev,  val, max_len);
 
     assert(netdev != NULL);
@@ -301,9 +310,6 @@ void isr_ethernet(void)
         	netdev->event_callback(netdev, NETDEV_EVENT_TX_COMPLETE);
     	}
 	if (irq_status & ETH_INT_TXER) {
-        	#ifdef MODULE_NETSTATS_L2
-        	netdev->stats.tx_failed++;
-        	#endif
         	netdev->event_callback(netdev, NETDEV_EVENT_TX_TIMEOUT);
     	}
         netdev->event_callback(netdev, NETDEV_EVENT_ISR);

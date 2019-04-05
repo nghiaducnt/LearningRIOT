@@ -10,8 +10,9 @@ RIOTBASE ?= $(CURDIR)/../../../
 # Comment this out to disable code in RIOT that does safety checking
 # which is not needed in a production environment but helps in the
 # development process:
-CFLAGS += -g -DDEVELHELP -DXTIMER_HZ=32000000 -DQEMU -O0
+#CFLAGS += -g -DDEVELHELP -DXTIMER_HZ=32000000 -DQEMU -O0
 
+CFLAGS += -g -DDEVELHELP  -DQEMU -O0
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 

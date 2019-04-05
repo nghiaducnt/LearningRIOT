@@ -17,7 +17,7 @@ static void *_timer_thread(void *args)
 		xtimer_ticks32_t t = xtimer_now();
 		printf("\t Thread start: %lu\n", t.ticks32);
 		/* sleep  */
-		xtimer_usleep(25000000);
+		xtimer_sleep(10);
 		t = xtimer_now();
 		printf("\t Thread stop: %lu\n", t.ticks32);
 		break;
@@ -40,7 +40,7 @@ static int __cmd_time_handler(int argc, char **args)
 	(void)args;
 	int i = 0;
 	/* start thread */
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < 1; i++) {
 		if (thread_create(
 			thread_stack[current_stack++ % 5],
 			sizeof(thread_stack[0]),
@@ -50,7 +50,7 @@ static int __cmd_time_handler(int argc, char **args)
 			printf("error initializing thread\n");
 			return 1;
     		}
-		xtimer_usleep(10000000);
+		//xtimer_usleep(5000);
 	}
 
 	return 0;	

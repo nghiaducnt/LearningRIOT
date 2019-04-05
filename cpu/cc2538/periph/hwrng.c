@@ -35,8 +35,9 @@ static cc2538_soc_adc_t *soc_adc = (cc2538_soc_adc_t *)SOC_ADC_BASE;
 void hwrng_init(void)
 {
     uint16_t seed = 0;
+#ifndef QEMU
     int i;
-
+#endif
     /* Make sure the RNG is on */
     uint32_t reg32 = soc_adc->ADCCON1 & ~(SOC_ADC_ADCCON1_RCTRL_M);
     soc_adc->ADCCON1 = reg32;
@@ -44,22 +45,23 @@ void hwrng_init(void)
     /* Enable clock for the RF Core */
     SYS_CTRL_RCGCRFC = 1;
 
+#ifndef QEMU
     /* Wait for the clock ungating to take effect */
     while (SYS_CTRL_RCGCRFC != 1) {}
-
+#endif
     /* Infinite RX - FRMCTRL0[3:2] = 10. This will mess with radio operation */
     RFCORE_XREG_FRMCTRL0 = 0x00000008;
 
     /* Turn RF on */
     RFCORE_SFR_RFST = ISRXON;
 
+#ifndef QEMU
     /*
      * Wait until "the chip has been in RX long enough for the transients to
      * have died out. A convenient way to do this is to wait for the RSSI-valid
      * signal to go high."
      */
     while (!RFCORE->XREG_RSSISTATbits.RSSI_VALID);
-
     /*
      * Form the seed by concatenating bits from IF_ADC in the RF receive path.
      * Keep sampling until we have read at least 16 bits AND the seed is valid
@@ -71,6 +73,7 @@ void hwrng_init(void)
         seed ^= RFCORE->XREG_RFRND;
     }
 
+#endif
     /* Seed the high byte first: */
     soc_adc->RNDH = (seed >> 8) & 0xff;
     soc_adc->RNDL = seed & 0xff;

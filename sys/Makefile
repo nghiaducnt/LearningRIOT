@@ -25,8 +25,8 @@ endif
 ifneq (,$(filter shell_commands,$(USEMODULE)))
   DIRS += shell/commands
 endif
-ifneq (,$(filter net_help,$(USEMODULE)))
-  DIRS += net/crosslayer/net_help
+ifneq (,$(filter netopt,$(USEMODULE)))
+  DIRS += net/crosslayer/netopt
 endif
 ifneq (,$(filter routing,$(USEMODULE)))
   DIRS += net/routing

@@ -37,6 +37,10 @@ extern "C" {
 #if (XTIMER_HZ != (1000000ul << XTIMER_SHIFT))
 #error XTIMER_HZ != (1000000ul << XTIMER_SHIFT)
 #endif
+#ifdef QEMU
+#undef XTIMER_SHIFT
+#define XTIMER_SHIFT (0)
+#endif
 /* XTIMER_HZ is a power-of-two multiple of 1 MHz */
 /* e.g. cc2538 uses a 16 MHz timer */
 static inline uint32_t _xtimer_ticks_from_usec(uint32_t usec) {

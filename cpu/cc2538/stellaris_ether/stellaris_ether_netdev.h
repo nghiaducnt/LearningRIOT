@@ -37,7 +37,7 @@ typedef struct
 
     uint8_t  rx_buf[ETHERNET_DATA_LEN];  /**< receive buffer */
     uint8_t  tx_buf[ETHERNET_DATA_LEN];  /**< transmit buffer */
-
+    uint8_t  addr[ETHERNET_ADDR_LEN];
     bool     link_up;                   /**< indicates whether link is up */
     uint32_t irq;			/* irq setting */
     uint32_t irq_num;

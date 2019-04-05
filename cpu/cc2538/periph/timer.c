@@ -32,8 +32,11 @@
 
 #define ENABLE_DEBUG (0)
 #include "debug.h"
-
+#if 0
 #define LOAD_VALUE              (0x30D4)
+#else
+#define LOAD_VALUE              (0x1)
+#endif
 
 #define TIMER_A_IRQ_MASK        (0x000000ff)
 #define TIMER_B_IRQ_MASK        (0x0000ff00)
@@ -120,12 +123,13 @@ int timer_init(tim_t tim, unsigned long freq, timer_cb_t cb, void *arg)
             DEBUG("Invalid timer_config. Multiple channels are available only in 16-bit mode.");
             return -1;
         }
-
+#ifndef QEMU
         if (freq != sys_clock_freq()) {
             DEBUG("In 32-bit mode, the GPTimer frequency must equal the system clock frequency (%u).\n",
                   (unsigned)sys_clock_freq());
             return -1;
         }
+#endif
 	/* In 32 Bit counting mode, the timer will generate un interrupt
 	after 1 ms */
         dev(tim)->TAILR = LOAD_VALUE;
@@ -172,17 +176,40 @@ int timer_init(tim_t tim, unsigned long freq, timer_cb_t cb, void *arg)
     return 0;
 }
 
+static inline unsigned int _timer_read(tim_t tim)
+{
+
+    if (tim >= TIMER_NUMOF) {
+        return 0;
+    }
+
+    if (timer_config[tim].cfg == GPTMCFG_32_BIT_TIMER) {
+        return dev(tim)->TAV;
+    } else if (timer_config[tim].cfg == GPTMCFG_32_BIT_REAL_TIME_CLOCK) {
+	return dev(tim)->TAR;
+    }
+    else {
+        return LOAD_VALUE - (dev(tim)->TAV & 0xffff);
+    }
+}
 int timer_set_absolute(tim_t tim, int channel, unsigned int value)
 {
+    uint32_t offset;
     DEBUG("%s(%u, %u, %u)\n", __FUNCTION__, tim, channel, value);
-
+#ifdef QEMU
+    value = value / 1000;
+#endif
+    offset = value - _timer_read(tim);
     if ((tim >= TIMER_NUMOF) || (channel >= (int)timer_config[tim].chn) ) {
         return -1;
     }
     /* clear any pending match interrupts */
     dev(tim)->ICR = chn_isr_cfg[channel].flag;
     if (channel == 0) {
-        dev(tim)->TAMATCHR = (timer_config[tim].cfg == GPTMCFG_32_BIT_TIMER) ?
+        if (timer_config[tim].cfg == GPTMCFG_32_BIT_TIMER) {
+        	dev(tim)->TAILR =  offset;
+	} else /* rtc count up */
+        	dev(tim)->TAMATCHR = (timer_config[tim].cfg == GPTMCFG_32_BIT_TIMER) ?
                              value : (LOAD_VALUE - value);
     }
     else {
@@ -212,20 +239,12 @@ int timer_clear(tim_t tim, int channel)
  */
 unsigned int timer_read(tim_t tim)
 {
-    DEBUG("%s(%u)\n", __FUNCTION__, tim);
-
-    if (tim >= TIMER_NUMOF) {
-        return 0;
-    }
-
-    if (timer_config[tim].cfg == GPTMCFG_32_BIT_TIMER) {
-        return dev(tim)->TAV;
-    } else if (timer_config[tim].cfg == GPTMCFG_32_BIT_REAL_TIME_CLOCK) {
-	return dev(tim)->TAR;
-    }
-    else {
-        return LOAD_VALUE - (dev(tim)->TAV & 0xffff);
-    }
+    /* DEBUG("%s(%u)\n", __FUNCTION__, tim); */
+    unsigned int res = _timer_read(tim);
+#ifdef QEMU
+    res *= 1000;
+#endif
+    return res;
 }
 
 /*
