@@ -41,6 +41,9 @@ USEMODULE += gnrc_icmpv6_echo
 # development process:
 DEVELHELP ?= 1
 
+ifneq (,$(filter lm3s6965evb_qemu,$(BOARD)))
+CFLAGS += -g -DDEVELHELP -DQEMU -O0
+endif
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 

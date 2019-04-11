@@ -65,7 +65,6 @@ static void cpu_clock_init(void)
         | OSC32K                /**< Use internal RC oscillator. */
 #endif
     ;
-    uint32_t *reg;
 
 #if SYS_CTRL_OSC32K_USE_XTAL
     /* Set the XOSC32K_Q pads to analog for the external crystal: */
@@ -80,9 +79,6 @@ static void cpu_clock_init(void)
 
     /* Configure the clock settings: */
     SYS_CTRL->cc2538_sys_ctrl_clk_ctrl.CLOCK_CTRL = CLOCK_CTRL_VALUE;
-    reg = (uint32_t *)&(SYS_CTRL->cc2538_sys_ctrl_clk_ctrl.CLOCK_CTRL);
-	*reg = CLOCK_CTRL_VALUE;
-#ifndef QEMU
     /* Wait for the new clock settings to take effect: */
     while ((SYS_CTRL->cc2538_sys_ctrl_clk_sta.CLOCK_STA ^ CLOCK_CTRL_VALUE) & CLOCK_STA_MASK);
 
@@ -91,5 +87,4 @@ static void cpu_clock_init(void)
     while ( SYS_CTRL->cc2538_sys_ctrl_clk_sta.CLOCK_STAbits.SYNC_32K);
     while (!SYS_CTRL->cc2538_sys_ctrl_clk_sta.CLOCK_STAbits.SYNC_32K);
 #endif
-	#endif /* QEMU */
 }
